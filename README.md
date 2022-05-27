@@ -8,7 +8,5 @@ The HUMMOD model of physiology is the result of collaboration between many physi
 
 # run from command line:
 
-edit the config file to set the parameters how you like and state which outputs you want to log
-
 from the PyHumMod directory run:
 > python model.py
