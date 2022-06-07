@@ -27,4 +27,4 @@ Included in this respository is the script I used to convert the standard HumMod
 To do this afresh, change the source directory in HumMod_to_python_converter.py to point to a standard HumMod repository
 
 Then, from the PyHumMod directory run:
-> python example_default.py
+> python HumMod_to_python_converter.py
