@@ -18,7 +18,7 @@ to run with custom parameters, simply set the chosen parameters before running t
 # the structure
 HumMod consists of hundreds of files representing different components of human phsyiology. In pyHumMod each file is represented by a class. All classes are defined in a single file: src/hummod.py
 
-Functions that solve differential equations or define custom subic splines are in src/special_functions.py
+Functions that solve differential equations or define custom cubic splines are in src/special_functions.py
 
 
 # convert to python afresh
