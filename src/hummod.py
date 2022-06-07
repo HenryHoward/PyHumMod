@@ -1,7 +1,33 @@
 from .special_functions import *
 import math
 
-delta_t = 0.0003
+timervars = []
+
+class System:
+    def __init__(self):
+        self.InitialX = 0
+        self.X = 0
+        self.Dx = 0.0003
+
+class Timer:
+    def __init__(self, val, state, Dx):
+        self.val = val
+        self.state = state
+        self.Dx = Dx
+    
+    def count(self):
+        if self.state == "OFF":
+            pass
+        elif self.state == "UP":
+            self.val += self.Dx
+        elif self.state == "DOWN":
+            self.val -= self.Dx
+    
+    def __lt__(self, other):
+        return self.val<other
+    
+    def __gt__(self, other):
+        return self.val>other
 
 class Structure:
 
@@ -441,6 +467,8 @@ class ADHPool:
         self.Gain = ADHSecretion.Rate + ADHPump.Rate
         self.Loss = ADHClearance.Total
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ADHSecretion:
     def __init__(self):
@@ -520,6 +548,8 @@ class ADHFastMass:
 
     def Dervs_func(self):
         self.Change = ADHSlowMass.Flux - self.Flux - ADHSecretion.Rate
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ADHSlowMass:
     def __init__(self):
@@ -532,6 +562,8 @@ class ADHSlowMass:
 
     def Dervs_func(self):
         self.Change = ADHSynthesis.Rate + ADHFastMass.Flux - self.Flux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ICFV:
     def __init__(self):
@@ -780,6 +812,8 @@ class GlucosePool:
         self.Gain = GILumenCarbohydrates.Absorption + LM_Glucose.Release + GlucosePump.Rate
         self.Loss = Metabolism_Glucose.TotalUptake + LM_Glucose.Uptake + NephronGlucose.Spillover + GlucoseDecomposition.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GlucoseDecomposition:
     def __init__(self):
@@ -862,6 +896,8 @@ class ThyroidPool:
         self.Gain = ThyroidSecretion.Rate + ThyroidPump.Rate
         self.Loss = ThyroidClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ThyroidSecretion:
     def __init__(self):
@@ -1186,7 +1222,7 @@ class Skin_Lactate:
         self.Used_mGperMin = Skin_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Skin_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -1195,6 +1231,8 @@ class Skin_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Skin_Pressure:
     def __init__(self):
@@ -1230,7 +1268,7 @@ class Skin_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Skin_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class Skin_Fuel:
@@ -1299,6 +1337,8 @@ class Skin_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class Skin_Metabolism:
     def __init__(self):
@@ -1349,7 +1389,7 @@ class Skin_CO2:
 
     def CalcDervs_func(self):
         self.K = Skin_Flow.BloodFlow / Skin_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -1364,6 +1404,8 @@ class Skin_CO2:
         self.Outflow_0 = Skin_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Skin_Flow:
     def __init__(self):
@@ -1380,7 +1422,7 @@ class Skin_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 40.0
     def A2Effect_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -1413,11 +1455,11 @@ class Skin_Flow:
         self.LocalTempEffect = 1.0 + ( self.LocalTempEffect_curve( HeatSkin.Temp_C ) * self.LocalTempVsNA_curve( HypothalamusSkinFlow.NerveActivity ) )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2Effect_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2Effect_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * OtherTissue_Vasculature.Effect * self.SympsDilateEffect * self.LocalTempEffect
             self.BloodFlow = ( max( ( Skin_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = Skin_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -1426,10 +1468,10 @@ class Skin_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 40.0, 0.40)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.40)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class Skin_Structure:
@@ -1454,6 +1496,8 @@ class Skin_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatSkin.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class Skin_AlphaReceptors:
     def __init__(self):
@@ -1535,6 +1579,8 @@ class PO4Pool:
         self.Gain = DietIntakeElectrolytes.PO4__mEqperMin
         self.Loss = CD_PO4.Outflow
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class PO4:
     def __init__(self):
@@ -1565,6 +1611,8 @@ class NaPool:
         self.Gain = GILumenSodium.Absorption + IVDrip.NaRate + Transfusion.NaRate
         self.Loss = CD_Na.Outflow + SweatDuct.NaOutflow + Hemorrhage.NaRate + DialyzerActivity.Na_Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SO4:
     def __init__(self):
@@ -1595,6 +1643,8 @@ class SO4Pool:
         self.Gain = DietIntakeElectrolytes.SO4__mEqperMin
         self.Loss = CD_SO4.Outflow
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ClPool:
     def __init__(self):
@@ -1617,6 +1667,8 @@ class ClPool:
         self.Gain = GILumenChloride.Absorption + IVDrip.ClRate + Transfusion.ClRate
         self.Loss = CD_Cl.Outflow + SweatDuct.ClOutflow + Hemorrhage.ClRate + DialyzerActivity.Cl_Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Cl:
     def __init__(self):
@@ -1635,6 +1687,8 @@ class KAldoEffect:
 
     def Dervs_func(self):
         self.Immediate = self.Effect_curve( AldoPool.conc_Aldo_pMolperL )
+        self.Delayed = delay( self.RateConst, self.Immediate, self.Delayed, System.Dx)
+
 
 class K:
 
@@ -1685,6 +1739,8 @@ class KCell:
         self.Gain = KFluxToCell.Rate
         self.Loss = KFluxToPool.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class KFluxToCell:
     def __init__(self):
@@ -1717,6 +1773,8 @@ class KPool:
         self.Gain = GILumenPotassium.Absorption + KFluxToPool.Rate + IVDrip.KRate + Transfusion.KRate
         self.Loss = CD_K.Outflow + KFluxToCell.Rate + SweatDuct.KOutflow + Hemorrhage.KRate + DialyzerActivity.K_Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class KMembrane:
     def __init__(self):
@@ -1794,6 +1852,8 @@ class HeatSkeletalMuscle:
         self.Gain = Metabolism_CaloriesUsed.SkeletalMuscleHeat_kCalperMin
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class HeatIVDrip:
     def __init__(self):
@@ -1915,6 +1975,8 @@ class HeatSkin:
         self.Gain = Metabolism_CaloriesUsed.SkinHeat_kCalperMin + HeatCore.Flux
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class HeatShivering:
     def __init__(self):
@@ -1973,6 +2035,8 @@ class HeatCore:
         self.Gain = Metabolism_CaloriesUsed.CoreHeat_kCalperMin + HeatSkeletalMuscle.Flux + GILumenTemperature.Absorption + HeatIVDrip.Flux + HeatTransfusion.Flux
         self.Loss = self.Flux + HeatInsensibleLung.Flux + HeatUrine.Flux + HeatDialyzer.Flux + HeatHemorrhage.Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class HeatInsensibleSkin:
     def __init__(self):
@@ -2162,6 +2226,8 @@ class CellProtein:
         self.Gain = self.Inflow
         self.Loss = self.Outflow + self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LungArtyO2:
     def __init__(self):
@@ -2227,6 +2293,8 @@ class ExcessLungWater:
         else:
             self.NotFailed_func()
         self.Change = self.Flux - self.Lymph
+        self.Volume = diffeq( self.Change, System.Dx, self.Volume)
+
 
     def NotFailed_func(self):
         self.Grad = PulmCapys.Pressure - PlasmaProtein.COP
@@ -2267,7 +2335,7 @@ class LungO2:
         self.conc_Capy = None
         self.PCapy = None
         self.CapySat = None
-
+        self.Uptake = 250.0
     def Calc_func(self):
         if Breathing.AlveolarVentilation_STPD > 0.0:
             self.CalcUptake_func()
@@ -2285,18 +2353,18 @@ class LungO2:
 
     def CalcUptake_func(self):
 
-        def implicitfunc(Uptake):
-            self.conc_Alveolar = Bronchi.conc_O2 - ( self.Uptake / Breathing.AlveolarVentilation_STPD )
+        def Uptakeimplicitfunc(Uptake):
+            self.conc_Alveolar = Bronchi.conc_O2 - ( Uptake / Breathing.AlveolarVentilation_STPD )
             self.PAlveolar = self.conc_Alveolar * Barometer.Pressure
-            self.MembraneGradient = self.Uptake / PulmonaryMembrane.Permeability
+            self.MembraneGradient = Uptake / PulmonaryMembrane.Permeability
             self.PCapy = self.PAlveolar - self.MembraneGradient
             HgbLung.pO2 = self.PCapy
             HgbLung.PO2ToO2_func()
             self.conc_Capy = HgbLung.conc_O2
-            self.EndUptake = LungBloodFlow.AlveolarVentilated * ( self.conc_Capy - LungArtyO2.conc_O2 )
+            EndUptake = LungBloodFlow.AlveolarVentilated * ( self.conc_Capy - LungArtyO2.conc_O2 )
 
-            return self.EndUptake
-        self.Uptake = impliciteq( self.EndUptake, implicitfunc, 250.0, 2.5)
+            return EndUptake
+        self.Uptake = impliciteq( Uptakeimplicitfunc, self.Uptake, 2.5)
 
 class Bronchi:
     def __init__(self):
@@ -2457,7 +2525,7 @@ class Breathing:
         if self.TidalVolume > 0.0:
             self.DeadSpaceFract = self.DeadSpace / self.TidalVolume
         else:
-            self.DeadSpaceFract = None
+            self.DeadSpaceFract = 0
 
         self.AlveolarVolume = self.TidalVolume - self.DeadSpace
         self.TotalVentilation = self.RespRate * self.TidalVolume
@@ -2497,7 +2565,7 @@ class LungCO2:
         self.PAlveolar = None
         self.conc_Capy = None
         self.PCapy = None
-
+        self.Expired = 200.0
     def Calc_func(self):
         if Breathing.AlveolarVentilation_STPD > 0.0:
             self.CalcExpired_func()
@@ -2506,18 +2574,18 @@ class LungCO2:
 
     def CalcExpired_func(self):
 
-        def implicitfunc(Expired):
-            self.conc_Alveolar = Bronchi.conc_CO2 + ( self.Expired / Breathing.AlveolarVentilation_STPD )
+        def Expiredimplicitfunc(Expired):
+            self.conc_Alveolar = Bronchi.conc_CO2 + ( Expired / Breathing.AlveolarVentilation_STPD )
             self.PAlveolar = self.conc_Alveolar * Barometer.Pressure
             self.PCapy = self.PAlveolar
             Blood_GasToBase.pCO2 = self.PCapy
             Blood_GasToBase.conc_SID = BloodIons.conc_SID
             Blood_GasToBase.Calc_func()
             self.conc_Capy = Blood_GasToBase.conc_HCO3
-            self.EndExpired = LungBloodFlow.AlveolarVentilated * ( LungArtyCO2.conc_CO2 - self.conc_Capy ) * CO2Tools.MolsToLiters
+            EndExpired = LungBloodFlow.AlveolarVentilated * ( LungArtyCO2.conc_CO2 - self.conc_Capy ) * CO2Tools.MolsToLiters
 
-            return self.EndExpired
-        self.Expired = impliciteq( self.EndExpired, implicitfunc, 200.0, 2.0)
+            return EndExpired
+        self.Expired = impliciteq( Expiredimplicitfunc, self.Expired, 2.0)
 
     def CalcNoneExpired_func(self):
         self.Expired = 0.0
@@ -2704,6 +2772,8 @@ class ReninSynthesis:
         self.TGFEffect = self.TGFEffect_curve( TGF_Renin.Signal )
         self.SympsEffect = self.SympsEffect_curve( Kidney_BetaReceptors.Activity )
         self.SteadyState = self.Base * self.TGFEffect * self.SympsEffect * Kidney_NephronCount.Total_xNormal * Kidney_Function.Effect
+        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx)
+
 
 class ReninClearance:
     def __init__(self):
@@ -2728,6 +2798,8 @@ class ReninFree:
         self.Gain = ReninSynthesis.Rate + ReninGranules.Flux
         self.Loss = ReninSecretion.Rate + self.Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class A2Pump:
     def __init__(self):
@@ -2757,6 +2829,8 @@ class ReninGranules:
         self.Gain = ReninGranules.Flux
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ReninPool:
     def __init__(self):
@@ -2788,6 +2862,8 @@ class ReninPool:
         self.Gain = ReninSecretion.Rate + ReninTumor.Rate
         self.Loss = ReninClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ReninSecretion:
     def __init__(self):
@@ -2883,6 +2959,8 @@ class FAPool:
         self.Gain = TriglycerideHydrolysis.FattyAcidRate + LipidDeposits_Release.Rate
         self.Loss = Metabolism_FattyAcid.TotalBurn + LipidDeposits_Uptake.Rate + LM_Ketoacids.FattyAcidUptake + FADecomposition.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class FADecomposition:
     def __init__(self):
@@ -2931,6 +3009,8 @@ class Pericardium_Cavity:
 
     def Dervs_func(self):
         self.Change = Pericardium_Hemorrhage.BloodFlow - Pericardium_Drain.BloodFlow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class Pericardium_TMP:
     def __init__(self):
@@ -2974,6 +3054,8 @@ class Pericardium_V0:
     def Dervs_func(self):
         self.PressureGradient = Pericardium_TMP.Pressure - self.NormalTMP
         self.Change = self.K * self.PressureGradient
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class SkeletalMuscle_ContractileProtein:
 
@@ -2982,6 +3064,8 @@ class SkeletalMuscle_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SkeletalMuscle_Ph:
     def __init__(self):
@@ -3059,6 +3143,8 @@ class SkeletalMuscle_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class SkeletalMuscle:
     def __init__(self):
@@ -3086,6 +3172,8 @@ class SkeletalMuscle_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatSkeletalMuscle.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class SkeletalMuscle_Pressure:
     def __init__(self):
@@ -3148,7 +3236,7 @@ class SkeletalMuscle_Lactate:
         self.Used_mGperMin = SkeletalMuscle_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / SkeletalMuscle_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -3157,6 +3245,8 @@ class SkeletalMuscle_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SkeletalMuscle_Metabolism:
     def __init__(self):
@@ -3366,7 +3456,7 @@ class SkeletalMuscle_CO2:
 
     def CalcDervs_func(self):
         self.K = SkeletalMuscle_Flow.BloodFlow / SkeletalMuscle_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -3381,6 +3471,8 @@ class SkeletalMuscle_CO2:
         self.Outflow_0 = SkeletalMuscle_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SkeletalMuscle_MetabolicVasodilation:
     def __init__(self):
@@ -3414,6 +3506,8 @@ class SkeletalMuscle_MetabolicVasodilation:
         else:
             self.K = self.OffK
 
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+
 
 class SkeletalMuscle_Flow:
     def __init__(self):
@@ -3428,7 +3522,7 @@ class SkeletalMuscle_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 38.0
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -3450,11 +3544,11 @@ class SkeletalMuscle_Flow:
         self.ADHEffect = self.ADHOnConductance_curve( ADHPool.Log10Conc )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * SkeletalMuscle_MetabolicVasodilation.Effect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * SkeletalMuscle_Vasculature.Effect * SkeletalMuscle_MusclePumping.Effect
             self.BloodFlow = ( max( ( SkeletalMuscle_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = SkeletalMuscle_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -3463,10 +3557,10 @@ class SkeletalMuscle_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 38.0, 0.38)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.38)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class SkeletalMuscle_Vasculature:
@@ -3486,7 +3580,7 @@ class SkeletalMuscle_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( SkeletalMuscle_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class SkeletalMuscle_Glycogen:
@@ -3523,6 +3617,8 @@ class SkeletalMuscle_Glycogen:
         self.Metabolism_CalperMin = SkeletalMuscle_Metabolism.AnaerobicCals * self.Availability
         self.Metabolism = self.Metabolism_CalperMin * Metabolism_Tools.CarboAnaerobic_mGperCal
         self.Change = self.MG_TO_G * ( self.Synthesis - self.Metabolism )
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SkeletalMuscle_Insulin:
     def __init__(self):
@@ -3534,6 +3630,8 @@ class SkeletalMuscle_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = InsulinPool.conc_Insulin
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+
 
 class InsulinInjection:
     def __init__(self):
@@ -3579,6 +3677,8 @@ class hCG:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Estradiol:
     def __init__(self):
@@ -3620,6 +3720,8 @@ class Estradiol:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class DailyPlannerControl:
     def __init__(self):
@@ -3632,11 +3734,16 @@ class DailyPlannerControl:
         self.FeedingTime = None
         self.FeedingFraction = None
         self.Status = 0
-        set_timervar("WaitingTimer", "unchanged", "unchanged")
-        set_timervar("HourTimer", "unchanged", "unchanged")
-        set_timervar("WorkTimer", "unchanged", "unchanged")
-        set_timervar("AerobicsTimer", "unchanged", "unchanged")
-        set_timervar("MealsTimer", "unchanged", "unchanged")
+        self.WaitingTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.WaitingTimer)
+        self.HourTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.HourTimer)
+        self.WorkTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.WorkTimer)
+        self.AerobicsTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.AerobicsTimer)
+        self.MealsTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.MealsTimer)
         self.MinutesIntoDay = None
         self.HoursIntoDay = None
         self.MinutesUntilMidnight = None
@@ -3667,18 +3774,24 @@ class DailyPlannerControl:
         self.MinutesIntoDay = System.X % 1440.0
         if self.MinutesIntoDay:
             self.Status = 1
-            set_timervar("WaitingTimer", "1440.0 - self.MinutesIntoDay", " self.DOWN ")
+            self.WaitingTimer.val = 1440.0 - self.MinutesIntoDay
+            self.WaitingTimer.state = " self.DOWN "
         else:
             self.Start_func()
 
     def Waiting_func(self):
-        self.timervars["WaitingTimer"][2] = self.Start
+        if self.WaitingTimer == 0:
+            self.Start()
 
     def Active_func(self):
-        self.timervars["HourTimer"][2] = self.NewTask
-        self.timervars["WorkTimer"][2] = self.Resting
-        self.timervars["AerobicsTimer"][2] = self.Resting
-        self.timervars["MealsTimer"][2] = self.Resting
+        if self.HourTimer == 0:
+            self.NewTask()
+        if self.WorkTimer == 0:
+            self.Resting()
+        if self.AerobicsTimer == 0:
+            self.Resting()
+        if self.MealsTimer == 0:
+            self.Resting()
 
     def Start_func(self):
         self.Status = 2
@@ -3686,11 +3799,11 @@ class DailyPlannerControl:
 
     def Stop_func(self):
         self.Status = 0
-        set_timervar("WaitingTimer", "unchanged", " self.OFF ")
-        set_timervar("HourTimer", "unchanged", " self.OFF ")
-        set_timervar("WorkTimer", "unchanged", " self.OFF ")
-        set_timervar("AerobicsTimer", "unchanged", " self.OFF ")
-        set_timervar("MealsTimer", "unchanged", " self.OFF ")
+        self.WaitingTimer.state = " self.OFF "
+        self.HourTimer.state = " self.OFF "
+        self.WorkTimer.state = " self.OFF "
+        self.AerobicsTimer.state = " self.OFF "
+        self.MealsTimer.state = " self.OFF "
         Status.Activity = 3
         Status.Exertion = 0
         PostureControl.Request = PostureControl.LYING
@@ -3709,7 +3822,8 @@ class DailyPlannerControl:
             self.StartAerobics_func()
         elif self.Task == 4:
             self.StartMeals_func()
-        set_timervar("HourTimer", "60.0", " self.DOWN ")
+        self.HourTimer.val = 60.0
+        self.HourTimer.state = " self.DOWN "
 
     def GetTask_func(self):
         self.HoursIntoDay = self.ROUND ( ( System.X % 1440.0 ) / 60.0 )
@@ -3776,7 +3890,8 @@ class DailyPlannerControl:
         self.Resting_func()
 
     def StartWork_func(self):
-        set_timervar("WorkTimer", "WorkDuration", " self.DOWN ")
+        self.WorkTimer.val = self.WorkDuration
+        self.WorkTimer.state = " self.DOWN "
         Status.Activity = 1
         Status.Exertion = 1
         PostureControl.Request = PostureControl.STANDING
@@ -3787,7 +3902,8 @@ class DailyPlannerControl:
         self.Resting_func()
 
     def StartAerobics_func(self):
-        set_timervar("AerobicsTimer", "AerobicsDuration", " self.DOWN ")
+        self.AerobicsTimer.val = self.AerobicsDuration
+        self.AerobicsTimer.state = " self.DOWN "
         Status.Activity = 1
         Status.Exertion = 2
         PostureControl.Request = PostureControl.STANDING
@@ -3798,7 +3914,8 @@ class DailyPlannerControl:
         self.Resting_func()
 
     def StartMeals_func(self):
-        set_timervar("MealsTimer", "MealsDuration", " self.DOWN ")
+        self.MealsTimer.val = self.MealsDuration
+        self.MealsTimer.state = " self.DOWN "
         Status.Activity = 1
         Status.Exertion = 0
         PostureControl.Request = PostureControl.SITTING
@@ -3867,7 +3984,8 @@ class Heart_Tachyarrhythmia:
 class Heart_VFib:
     def __init__(self):
         self.Is_Fibrillating = False
-        set_timervar("ElapsedTime", "None", "unchanged")
+        self.ElapsedTime = Timer(0, "None", System.Dx)
+        timervars.append(self.ElapsedTime)
 
     def Wrapup_func(self):
         if Heart_Asystole.Is_Asystole:
@@ -3896,14 +4014,15 @@ class Heart_VFib:
 
     def Start_func(self):
         self.Is_Fibrillating = True
-        set_timervar("ElapsedTime", "0.0", " self.UP ")
+        self.ElapsedTime.val = 0.0
+        self.ElapsedTime.state = " self.UP "
 
     def Stop_func(self):
         self.Is_Fibrillating = False
-        set_timervar("ElapsedTime", "unchanged", " self.OFF ")
+        self.ElapsedTime.state = " self.OFF "
 
     def ResetElapsedTime_func(self):
-        set_timervar("ElapsedTime", "0.0", "unchanged")
+        self.ElapsedTime.val = 0.0
 
 class Heart_Asystole:
     def __init__(self):
@@ -4172,7 +4291,7 @@ class Heart_Defibrillator:
     def __init__(self):
         self.Joules = 100.0
         self.TotalShocks = 0
-        self.Probability = None
+        self.Probability = 0
 
     def Joules_Probability_curve(self, x):
         return cubic_hermite_spline(x, [50.0, 100.0], [0.0, 0.8], [0.0, 0.0])
@@ -4323,7 +4442,7 @@ class Drugs:
 class MidodrineSingleDose:
     def __init__(self):
         self.Dose = 0.0
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4334,7 +4453,7 @@ class MidodrineSingleDose:
         self.CumulativeDose = self.CumulativeDose + self.Dose
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4354,6 +4473,8 @@ class MidodrinePool:
         self.Gain = MidodrineGILumen.Loss
         self.Loss = self.K * self.Mass
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class MidodrineGILumen:
     def __init__(self):
@@ -4370,6 +4491,8 @@ class MidodrineGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.NIPHCL * self.PERM * self.Mass
         self.Change = - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class MidodrineDailyDose:
     def __init__(self):
@@ -4377,11 +4500,12 @@ class MidodrineDailyDose:
         self.TakeDaily = False
         self.LastTakeDaily = False
         self.TimesADay = 1.0
-        self.TimeLastDose = None
-        self.TimeNextDose = None
+        self.TimeLastDose = 0
+        self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        set_timervar("Timer", "0.0", " self.OFF ")
+        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
         self.PREPTIME = 10.0
@@ -4392,31 +4516,32 @@ class MidodrineDailyDose:
             pass
         else:
             if self.TakeDaily:
-                set_timervar("Timer", "0.0", " self.UP ")
+                self.Timer.val = 0.0
+                self.Timer.state = " self.UP "
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                set_timervar("Timer", "unchanged", " self.OFF ")
-                self.TimeNextDose = None
+                self.Timer.state = " self.OFF "
+                self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
     def Wrapup_func(self):
         if self.TakeDaily:
-            pass
-        else:
-            if self.Timer < self.Interval:
+            if Timer < self.Interval:
                 pass
             else:
-                set_timervar("Timer", "0.0", "unchanged")
+                self.Timer.val = 0.0
                 self.TimeNextDose = self.TimeNextDose + self.IntervalGoal
                 self.TimeLastDose = System.X
                 self.Interval = self.TimeNextDose - System.X
                 MidodrineGILumen.Mass = MidodrineGILumen.Mass + ( 1000.0 * self.Dose )
                 self.TotalDoses = self.TotalDoses + 1.0
                 self.CumulativeDose = self.CumulativeDose + self.Dose
+        else:
+            pass
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4436,6 +4561,8 @@ class DesglymidodrinePool:
         self.Gain = self.NIPGLYCINE * MidodrinePool.Loss
         self.Loss = DesglymidodrineKidney.UrineLoss
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class DesglymidodrineKidney:
     def __init__(self):
@@ -4498,7 +4625,7 @@ class Digoxin:
 class DigoxinSingleDose:
     def __init__(self):
         self.Dose = 0.0
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4509,7 +4636,7 @@ class DigoxinSingleDose:
         self.CumulativeDose = self.CumulativeDose + self.Dose
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4529,6 +4656,8 @@ class DigoxinPool:
         self.Gain = DigoxinGILumen.Loss
         self.Loss = DigoxinKidney.UrineLoss
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Wrapup_func(self):
         if ( not self.Nauseated ) and ( self.conc_Digoxin > 2.0 ):
@@ -4542,11 +4671,12 @@ class DigoxinDailyDose:
         self.TakeDaily = False
         self.LastTakeDaily = False
         self.TimesADay = 1.0
-        self.TimeLastDose = None
-        self.TimeNextDose = None
+        self.TimeLastDose = 0
+        self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        set_timervar("Timer", "0.0", " self.OFF ")
+        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
         self.PREPTIME = 10.0
@@ -4557,31 +4687,32 @@ class DigoxinDailyDose:
             pass
         else:
             if self.TakeDaily:
-                set_timervar("Timer", "0.0", " self.UP ")
+                self.Timer.val = 0.0
+                self.Timer.state = " self.UP "
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                set_timervar("Timer", "unchanged", " self.OFF ")
-                self.TimeNextDose = None
+                self.Timer.state = " self.OFF "
+                self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
     def Wrapup_func(self):
         if self.TakeDaily:
-            pass
-        else:
-            if self.Timer < self.Interval:
+            if Timer < self.Interval:
                 pass
             else:
-                set_timervar("Timer", "0.0", "unchanged")
+                self.Timer.val = 0.0
                 self.TimeNextDose = self.TimeNextDose + self.IntervalGoal
                 self.TimeLastDose = System.X
                 self.Interval = self.TimeNextDose - System.X
                 DigoxinGILumen.Mass = DigoxinGILumen.Mass + self.Dose
                 self.TotalDoses = self.TotalDoses + 1.0
                 self.CumulativeDose = self.CumulativeDose + self.Dose
+        else:
+            pass
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4599,6 +4730,8 @@ class DigoxinGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.PERM * self.Mass
         self.Change = - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class FurosemideSingleDose:
     def __init__(self):
@@ -4606,7 +4739,7 @@ class FurosemideSingleDose:
         self.Timespan = 15.0
         self.K = None
         self.Loss = None
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
         self.Mass = 0.0
@@ -4617,6 +4750,8 @@ class FurosemideSingleDose:
     def Dervs_func(self):
         self.Loss = self.K * self.Mass
         self.Change = - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def InjectNow_func(self):
         self.Mass = self.Mass + self.Dose
@@ -4625,7 +4760,7 @@ class FurosemideSingleDose:
         self.CumulativeDose = self.CumulativeDose + self.Dose
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4657,6 +4792,8 @@ class FurosemidePool:
         self.NonrenalLoss = self.NONRENALK * self.Mass
         self.Loss = self.NonrenalLoss + FurosemideKidney.UrineLoss
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Furosemide:
 
@@ -4693,6 +4830,8 @@ class ThiazideGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.PERM * self.Mass
         self.Change = - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Chlorothiazide:
 
@@ -4717,11 +4856,12 @@ class ThiazideDailyDose:
         self.TakeDaily = False
         self.LastTakeDaily = False
         self.TimesADay = 1.0
-        self.TimeLastDose = None
-        self.TimeNextDose = None
+        self.TimeLastDose = 0
+        self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        set_timervar("Timer", "0.0", " self.OFF ")
+        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
         self.PREPTIME = 10.0
@@ -4732,31 +4872,32 @@ class ThiazideDailyDose:
             pass
         else:
             if self.TakeDaily:
-                set_timervar("Timer", "0.0", " self.UP ")
+                self.Timer.val = 0.0
+                self.Timer.state = " self.UP "
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                set_timervar("Timer", "unchanged", " self.OFF ")
-                self.TimeNextDose = None
+                self.Timer.state = " self.OFF "
+                self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
     def Wrapup_func(self):
         if self.TakeDaily:
-            pass
-        else:
-            if self.Timer < self.Interval:
+            if Timer < self.Interval:
                 pass
             else:
-                set_timervar("Timer", "0.0", "unchanged")
+                self.Timer.val = 0.0
                 self.TimeNextDose = self.TimeNextDose + self.IntervalGoal
                 self.TimeLastDose = System.X
                 self.Interval = self.TimeNextDose - System.X
                 ThiazideGILumen.Mass = ThiazideGILumen.Mass + self.Dose
                 self.TotalDoses = self.TotalDoses + 1.0
                 self.CumulativeDose = self.CumulativeDose + self.Dose
+        else:
+            pass
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4774,11 +4915,13 @@ class ThiazidePool:
         self.Gain = ThiazideGILumen.Loss
         self.Loss = ThiazideKidney.UrineLoss
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class ThiazideSingleDose:
     def __init__(self):
         self.Dose = 0.0
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4789,7 +4932,7 @@ class ThiazideSingleDose:
         self.CumulativeDose = self.CumulativeDose + self.Dose
 
     def Reset_func(self):
-        self.TimeLastDose = None
+        self.TimeLastDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
 
@@ -4932,6 +5075,8 @@ class GILumenSodium:
         self.Absorption = self.Perm * self.Mass
         self.Diarrhea = GILumenDiarrhea.Na_Loss
         self.Change = self.Intake - self.Absorption - self.Diarrhea
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenPotassium:
     def __init__(self):
@@ -4950,6 +5095,8 @@ class GILumenPotassium:
         self.Intake = DietIntakeElectrolytes.K__mEqperMin
         self.Absorption = self.Perm * self.Mass
         self.Change = self.Intake - self.Absorption
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenChloride:
     def __init__(self):
@@ -4970,6 +5117,8 @@ class GILumenChloride:
         self.Absorption = self.Perm * self.Mass
         self.Vomitus = GILumenVomitus.Cl_Loss
         self.Change = self.Intake - self.Absorption - self.Vomitus
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenElectrolytes:
 
@@ -5013,6 +5162,8 @@ class GILumenVolume:
         self.Vomitus = GILumenVomitus.H2OLoss
         self.Diarrhea = GILumenDiarrhea.H2OLoss
         self.Change = self.Intake - self.Absorption - self.Vomitus - self.Diarrhea
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenH2O:
 
@@ -5055,6 +5206,8 @@ class GILumenTemperature:
         self.Gain = self.Intake
         self.Loss = self.Absorption + self.Vomitus + self.Diarrhea
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenDiarrhea:
     def __init__(self):
@@ -5110,6 +5263,8 @@ class GILumenCarbohydrates:
         self.Intake = DietIntakeNutrition.Carbo_mGperMin
         self.Absorption = self.Transporter * self.AbsorptionSaturation_curve( self.Mass )
         self.Change = self.Intake - self.Absorption
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenFood:
 
@@ -5138,6 +5293,8 @@ class GILumenProtein:
         self.Intake = DietIntakeNutrition.Protein_mGperMin
         self.Absorption = self.Mass * self.Perm
         self.Change = self.Intake - self.Absorption
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GILumenFat:
     def __init__(self):
@@ -5154,6 +5311,8 @@ class GILumenFat:
         self.Intake = DietIntakeNutrition.Fat_mGperMin
         self.Absorption = self.Perm * self.Mass
         self.Change = self.Intake - self.Absorption
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GITract_Pressure:
     def __init__(self):
@@ -5198,6 +5357,8 @@ class GITract_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class GITract_Metabolism:
     def __init__(self):
@@ -5248,7 +5409,7 @@ class GITract_CO2:
 
     def CalcDervs_func(self):
         self.K = GITract_Flow.BloodFlow / GITract_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -5263,6 +5424,8 @@ class GITract_CO2:
         self.Outflow_0 = GITract_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GITract_Fuel:
     def __init__(self):
@@ -5330,6 +5493,8 @@ class GITract_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class GITract_Ph:
     def __init__(self):
@@ -5464,7 +5629,7 @@ class GITract_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( GITract_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class GITract_Flow:
@@ -5480,7 +5645,7 @@ class GITract_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 54.0
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -5502,11 +5667,11 @@ class GITract_Flow:
         self.ADHEffect = self.ADHOnConductance_curve( ADHPool.Log10Conc )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * GITract_Vasculature.Effect
             self.BloodFlow = ( max( ( GITract_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = GITract_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -5515,10 +5680,10 @@ class GITract_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 54.0, 0.54)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.54)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class GITract_Lactate:
@@ -5551,7 +5716,7 @@ class GITract_Lactate:
         self.Used_mGperMin = GITract_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / GITract_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -5560,6 +5725,8 @@ class GITract_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AldoSecretion:
     def __init__(self):
@@ -5622,6 +5789,8 @@ class AldoPool:
         self.Gain = AldoSecretion.Rate + AldoPump.Rate
         self.Loss = AldoDisposal.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AldoTumor:
     def __init__(self):
@@ -5690,7 +5859,7 @@ class O2Artys:
         else:
             self.conc_O2_SteadyState = 0.0
 
-        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, 0.196, delta_t)
+        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx)
 
 
 class PO2Artys:
@@ -5727,7 +5896,7 @@ class O2Veins:
         else:
             self.conc_O2_SteadyState = 0.0
 
-        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, 0.157, delta_t)
+        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx)
 
 
 class O2:
@@ -5874,6 +6043,8 @@ class SweatFuel:
         self.Gain = self.RefillK * self.MassEffect
         self.Loss = self.UseK * SweatGland.H2ORateBasic
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class SweatAcclimation:
     def __init__(self):
@@ -5891,6 +6062,8 @@ class SweatAcclimation:
     def Dervs_func(self):
         self.TemperatureEffect = self.TemperatureEffect_curve( HeatSkin.Temp_F )
         self.SteadyState = self.BasicEffect * self.TemperatureEffect
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+
 
 class Kidney_Alpha:
     def __init__(self):
@@ -5972,7 +6145,7 @@ class Kidney_Lactate:
         self.Used_mGperMin = Kidney_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Kidney_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -5981,6 +6154,8 @@ class Kidney_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Kidney_O2:
     def __init__(self):
@@ -5991,7 +6166,7 @@ class Kidney_O2:
         self.AerobicFraction = None
         self.HgbOnPerm = None
         self.O2Use = None
-
+        self.TubulePO2 = 35.0
     def HgbOnPerm_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 0.15, 0.25], [0.4, 1.0, 2.0], [0.0, 8.0, 0.0])
 
@@ -6003,8 +6178,8 @@ class Kidney_O2:
         self.O2Perm = self.HgbOnPerm * self.O2PermBasic
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(TubulePO2):
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.TubulePO2 )
+        def TubulePO2implicitfunc(TubulePO2):
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( TubulePO2 )
             self.O2Use = Kidney_Metabolism.O2Need * self.AerobicFraction
             if Kidney_Flow.BloodFlow > 0.0:
                 self.Veinconc_O2 = O2Artys.conc_O2 - ( self.O2Use / Kidney_Flow.BloodFlow )
@@ -6014,10 +6189,10 @@ class Kidney_O2:
             HgbTissue.conc_O2 = self.Veinconc_O2
             HgbTissue.O2ToPO2_func()
             self.VeinPO2 = HgbTissue.pO2
-            self.TubulePO2End = self.VeinPO2 - ( self.O2Use / self.O2Perm )
+            TubulePO2End = self.VeinPO2 - ( self.O2Use / self.O2Perm )
 
-            return self.TubulePO2End
-        self.TubulePO2 = impliciteq( self.TubulePO2End, implicitfunc, 35.0, 0.35)
+            return TubulePO2End
+        self.TubulePO2 = impliciteq( TubulePO2implicitfunc, self.TubulePO2, 0.35)
 
 class Kidney_MyogenicDelay:
     def __init__(self):
@@ -6027,6 +6202,8 @@ class Kidney_MyogenicDelay:
         self.K = 2.0
         self.DxMax = 0.2
         self.PressureChange_Steady_State = Kidney_Myogenic.PressureChange_Steady_State
+        self.PressureChange = delay( self.K, self.PressureChange_Steady_State, self.PressureChange, System.Dx)
+
 
 class Kidney_Fuel:
     def __init__(self):
@@ -6094,6 +6271,8 @@ class Kidney_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class Kidney:
     def __init__(self):
@@ -6202,7 +6381,7 @@ class Kidney_CO2:
 
     def CalcDervs_func(self):
         self.K = Kidney_Flow.BloodFlow / Kidney_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -6217,6 +6396,8 @@ class Kidney_CO2:
         self.Outflow_0 = Kidney_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Kidney_Structure:
     def __init__(self):
@@ -6240,6 +6421,8 @@ class Kidney_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class Kidney_Metabolism:
     def __init__(self):
@@ -6411,7 +6594,7 @@ class Kidney_Myogenic:
             self.PressureChange_Steady_State = self.InterlobarPressure - self.AdaptedPressure
 
         Kidney_MyogenicDelay.Dervs_func()
-        self.AdaptedPressure = delay( self.K, self.InterlobarPressure, 77.0, delta_t)
+        self.AdaptedPressure = delay( self.K, self.InterlobarPressure, self.AdaptedPressure, System.Dx)
 
 
 class AnesthesiaGasBone:
@@ -6432,6 +6615,8 @@ class AnesthesiaGasBone:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Bone_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGas:
 
@@ -6499,6 +6684,8 @@ class AnesthesiaGasBrain:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Brain_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasLiver:
     def __init__(self):
@@ -6524,6 +6711,8 @@ class AnesthesiaGasLiver:
 
         self.Uptake = ( self.conc_Arty - self.conc_Vein ) * OrganFlow.HepaticVeinFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasGITract:
     def __init__(self):
@@ -6543,6 +6732,8 @@ class AnesthesiaGasGITract:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * GITract_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasSkeletalMuscle:
     def __init__(self):
@@ -6562,6 +6753,8 @@ class AnesthesiaGasSkeletalMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * SkeletalMuscle_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasFat:
     def __init__(self):
@@ -6581,6 +6774,8 @@ class AnesthesiaGasFat:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Fat_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasRespiratoryMuscle:
     def __init__(self):
@@ -6600,6 +6795,8 @@ class AnesthesiaGasRespiratoryMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * RespiratoryMuscle_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasVein:
     def __init__(self):
@@ -6622,6 +6819,8 @@ class AnesthesiaGasVein:
         self.Gain = ( AnesthesiaGasArty.conc_Blood * A_VFistula_Flow.BloodFlow ) + ( AnesthesiaGasBone.conc_Vein * Bone_Flow.BloodFlow ) + ( AnesthesiaGasBrain.conc_Vein * Brain_Flow.BloodFlow ) + ( AnesthesiaGasFat.conc_Vein * Fat_Flow.BloodFlow ) + ( AnesthesiaGasGITract.conc_Vein * GITract_Flow.BloodFlow ) + ( AnesthesiaGasKidney.conc_Vein * Kidney_Flow.BloodFlow ) + ( AnesthesiaGasLeftHeart.conc_Vein * LeftHeart_Flow.BloodFlow ) + ( AnesthesiaGasLiver.conc_Vein * OrganFlow.HepaticVeinFlow ) + ( AnesthesiaGasOtherTissue.conc_Vein * OtherTissue_Flow.BloodFlow ) + ( AnesthesiaGasRespiratoryMuscle.conc_Vein * RespiratoryMuscle_Flow.BloodFlow ) + ( AnesthesiaGasRightHeart.conc_Vein * RightHeart_Flow.BloodFlow ) + ( AnesthesiaGasSkeletalMuscle.conc_Vein * SkeletalMuscle_Flow.BloodFlow ) + ( AnesthesiaGasSkin.conc_Vein * Skin_Flow.BloodFlow )
         self.Loss = PulmArty.Outflow * self.conc_Blood
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasSkin:
     def __init__(self):
@@ -6641,6 +6840,8 @@ class AnesthesiaGasSkin:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Skin_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasLeftHeart:
     def __init__(self):
@@ -6665,6 +6866,8 @@ class AnesthesiaGasLeftHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * LeftHeart_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasLung:
     def __init__(self):
@@ -6727,6 +6930,8 @@ class AnesthesiaGasArty:
         self.Gain = ( AnesthesiaGasLung.conc_Capy * LungBloodFlow.AlveolarVentilated ) + ( AnesthesiaGasVein.conc_Blood * LungBloodFlow.TotalShunt )
         self.Loss = SystemicArtys.Outflow * self.conc_Blood
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasOtherTissue:
     def __init__(self):
@@ -6751,6 +6956,8 @@ class AnesthesiaGasOtherTissue:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * OtherTissue_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasKidney:
     def __init__(self):
@@ -6770,6 +6977,8 @@ class AnesthesiaGasKidney:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Kidney_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaGasRightHeart:
     def __init__(self):
@@ -6789,6 +6998,8 @@ class AnesthesiaGasRightHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * RightHeart_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class CO:
     def __init__(self):
@@ -6805,7 +7016,7 @@ class CO:
         self.conc_CO_Lung = None
         self.pCO_Lung = None
         self.Mass = 4.9
-
+        self.Uptake = -0.007
     def Calc_func(self):
         self.ExtravascularSpace = self.ExtravascularSpaceFraction * BloodVol.Vol
         self.VolumeDistribution = BloodVol.Vol + self.ExtravascularSpace
@@ -6815,19 +7026,21 @@ class CO:
         self.pCO = ( self.conc_CO * LungO2.PCapy ) / ( self.HaldaneFactor * LungO2.conc_Capy )
         self.Permeability = self.CO_O2Ratio * PulmonaryMembrane.Permeability
 
-        def implicitfunc(Uptake):
+        def Uptakeimplicitfunc(Uptake):
             if Breathing.AlveolarVentilation_STPD > 0.0:
-                self.conc_CO_Lung = Bronchi.conc_CO - ( self.Uptake / Breathing.AlveolarVentilation_STPD )
+                self.conc_CO_Lung = Bronchi.conc_CO - ( Uptake / Breathing.AlveolarVentilation_STPD )
             else:
                 self.conc_CO_Lung = self.conc_CO
 
             self.pCO_Lung = self.conc_CO_Lung * Barometer.Pressure
             self.Gradient = self.pCO_Lung - self.pCO
-            self.EndUptake = self.Gradient * self.Permeability
+            EndUptake = self.Gradient * self.Permeability
 
-            return self.EndUptake
-        self.Uptake = impliciteq( self.EndUptake, implicitfunc, -0.007, 0.01)
+            return EndUptake
+        self.Uptake = impliciteq( Uptakeimplicitfunc, self.Uptake, 0.01)
         self.Change = self.Uptake + self.EndogenousProduction
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class PhCells:
     def __init__(self):
@@ -6937,6 +7150,8 @@ class InsulinSynthesis:
     def Dervs_func(self):
         self.MassEffect = self.MassEffect_curve( InsulinStorage.Mass )
         self.SteadyState = self.MassEffect
+        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx)
+
 
 class InsulinPump:
     def __init__(self):
@@ -6978,6 +7193,8 @@ class InsulinPool:
         self.Gain = InsulinSecretion.Rate + InsulinPump.Rate
         self.Loss = InsulinClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Insulin:
 
@@ -7005,6 +7222,8 @@ class InsulinStorage:
         self.Gain = InsulinSynthesis.Rate
         self.Loss = InsulinSecretion.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LeftHeartPumping_Valves:
     def __init__(self):
@@ -7111,7 +7330,7 @@ class Bone_Lactate:
         self.Used_mGperMin = Bone_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Bone_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -7120,6 +7339,8 @@ class Bone_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Bone_Size:
     def __init__(self):
@@ -7231,7 +7452,7 @@ class Bone_CO2:
 
     def CalcDervs_func(self):
         self.K = Bone_Flow.BloodFlow / Bone_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -7246,6 +7467,8 @@ class Bone_CO2:
         self.Outflow_0 = Bone_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Bone_Fuel:
     def __init__(self):
@@ -7313,6 +7536,8 @@ class Bone_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class Bone_Vasculature:
     def __init__(self):
@@ -7331,7 +7556,7 @@ class Bone_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Bone_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class Bone_Structure:
@@ -7356,6 +7581,8 @@ class Bone_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class Bone:
     def __init__(self):
@@ -7402,6 +7629,8 @@ class Bone_Mineral:
 
     def Dervs_func(self):
         self.Change = 0.0
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Bone_Flow:
     def __init__(self):
@@ -7419,7 +7648,7 @@ class Bone_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 40.0
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -7445,11 +7674,11 @@ class Bone_Flow:
         self.ADHEffect = self.ADHOnConductance_curve( ADHPool.Log10Conc )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * Bone_Vasculature.Effect
             self.BloodFlow = ( max( ( Bone_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = Bone_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -7458,10 +7687,10 @@ class Bone_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 40.0, 0.40)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.40)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class Bone_Ph:
@@ -7599,6 +7828,8 @@ class UT_H2O:
         self.Gain = UT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = UT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class MT_H2O:
     def __init__(self):
@@ -7626,6 +7857,8 @@ class MT_H2O:
         self.Gain = MT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = MT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class LT_H2O:
     def __init__(self):
@@ -7653,6 +7886,8 @@ class LT_H2O:
         self.Gain = LT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = LT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class MT_CapillaryProtein:
     def __init__(self):
@@ -7871,6 +8106,8 @@ class MT_InterstitialProtein:
         self.Gain = MT_CapillaryProtein.Rate
         self.Loss = MT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class UT_InterstitialProtein:
     def __init__(self):
@@ -7892,6 +8129,8 @@ class UT_InterstitialProtein:
         self.Gain = UT_CapillaryProtein.Rate
         self.Loss = UT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LT_InterstitialProtein:
     def __init__(self):
@@ -7913,6 +8152,8 @@ class LT_InterstitialProtein:
         self.Gain = LT_CapillaryProtein.Rate
         self.Loss = LT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class InterstitialProtein:
     def __init__(self):
@@ -8002,6 +8243,8 @@ class PeritoneumSpace:
         self.OutflowGrad = self.Pressure - self.ExternalPressure
         self.Loss = ( max( ( self.OutflowGrad * self.OutflowPerm ), 0.0) )
         self.Change = self.Gain - self.Loss
+        self.Volume = diffeq( self.Change, System.Dx, self.Volume)
+
 
 class Peritoneum:
 
@@ -8025,6 +8268,8 @@ class PeritoneumProtein:
         self.Gain = PeritoneumSpace.Gain * PlasmaProtein.conc_Protein
         self.Loss = PeritoneumSpace.Loss * self.conc_Protein
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GlycerolPool:
     def __init__(self):
@@ -8065,6 +8310,8 @@ class GlycerolPool:
         self.Gain = self.Synthesis + self.TriglycerideHydrolysis
         self.Loss = self.Degradation + self.GutFAAbsorption + self.LiverFARelease
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Glycerol:
     def __init__(self):
@@ -8311,6 +8558,8 @@ class conc_EPODelay:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( EPOPool.Log10Conc )
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+
 
 class RBCSecretion:
     def __init__(self):
@@ -8342,6 +8591,8 @@ class PlasmaVol:
         self.Gain = GILumenVolume.Absorption + LymphWater.Rate + IVDrip.H2ORate + ExcessLungWater.Flux + PeritoneumSpace.Loss + Transfusion.PlasmaRate
         self.Loss = CD_H2O.Outflow + CapillaryWater.Rate + ExcessLungWater.Flux + PeritoneumSpace.Gain + Hemorrhage.PlasmaRate + Pericardium_Hemorrhage.PlasmaFlow
         self.Change = self.Gain - self.Loss
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class BloodVol:
     def __init__(self):
@@ -8438,6 +8689,8 @@ class RBCVol:
         self.Gain = RBCSecretion.Rate + Transfusion.RBCRate
         self.Loss = RBCClearance.Rate + Hemorrhage.RBCRate + Pericardium_Hemorrhage.RBCFlow
         self.Change = self.Gain - self.Loss
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class RBCH2O:
     def __init__(self):
@@ -8537,6 +8790,8 @@ class TriglyceridePool:
         self.Gain = self.GutAbsorption + self.LiverRelease
         self.Loss = TriglycerideHydrolysis.Rate + TriglycerideDecomposition.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Triglyceride:
 
@@ -9094,7 +9349,7 @@ class RightHeart_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( RightHeart_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class RightHeart_Work:
@@ -9269,6 +9524,8 @@ class RightHeart_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class RightHeart_CO2:
     def __init__(self):
@@ -9294,7 +9551,7 @@ class RightHeart_CO2:
 
     def CalcDervs_func(self):
         self.K = RightHeart_Flow.BloodFlow / RightHeart_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -9309,6 +9566,8 @@ class RightHeart_CO2:
         self.Outflow_0 = RightHeart_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RightHeart_AlphaReceptors:
     def __init__(self):
@@ -9338,6 +9597,8 @@ class RightHeart_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RightHeart_Ph:
     def __init__(self):
@@ -9377,6 +9638,8 @@ class RightHeart_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class RightHeart_Metabolism:
     def __init__(self):
@@ -9440,6 +9703,8 @@ class RightHeart_Infarction:
         self.DeadTissueK = 0.004
         self.DamagedTissueFraction = self.Areapercent / 100.0
         self.Effect = 1.0 - self.DamagedTissueFraction
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+
 
     def Dervs_func(self):
         self.IschemicTissueFraction = self.DamagedTissueFraction - self.DeadTissueFraction
@@ -9451,7 +9716,7 @@ class RightHeart_Infarction:
             self.IsIschemic = True
         else:
             pass
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, 0.0, delta_t)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
 
 
 class RightHeart_Flow:
@@ -9471,7 +9736,7 @@ class RightHeart_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 17.1
     def SympsOnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.0, 4.0], [1.3, 1.0, 0.8], [0.0, -0.16, 0.0])
 
@@ -9494,12 +9759,12 @@ class RightHeart_Flow:
         self.MetabolismEffect = self.MetabolismOnConductance_curve( RightHeart_Metabolism.O2Need )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.SmallVesselConductance = self.SmallVesselBasicConductance * self.SympsEffect * self.PO2Effect * self.ADHEffect * self.MetabolismEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * RightHeart_Vasculature.Effect * RightHeart_Infarction.Effect
             self.Conductance = ( self.SmallVesselConductance * self.LargeVesselConductance ) / ( self.SmallVesselConductance + self.LargeVesselConductance )
             self.BloodFlow = ( max( ( RightHeart_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = RightHeart_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -9508,10 +9773,10 @@ class RightHeart_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 17.1, 0.17)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.17)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class RightHeart_Lactate:
@@ -9544,7 +9809,7 @@ class RightHeart_Lactate:
         self.Used_mGperMin = RightHeart_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / RightHeart_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -9553,6 +9818,8 @@ class RightHeart_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AminoAcid:
     def __init__(self):
@@ -9583,6 +9850,8 @@ class AAPool:
         self.Gain = GILumenProtein.Absorption + CellProtein.Outflow
         self.Loss = CellProtein.Inflow + LM_AminoAcids.Uptake
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GnRH:
     def __init__(self):
@@ -9776,6 +10045,8 @@ class LipidDeposits:
         self.Loss = LipidDeposits_Release.Rate
         self.Change_mGperMin = self.Gain - self.Loss
         self.Change = 0.001 * self.Change_mGperMin
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LipidDeposits_Uptake:
     def __init__(self):
@@ -9840,6 +10111,10 @@ class OralH2OGlucoseLoad:
     def Dervs_func(self):
         self.H2OChange = self.H2ORate
         self.GlucoseChange = self.GlucoseRate
+        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O)
+
+        self.TotalGlucose = diffeq( self.GlucoseChange, System.Dx, self.TotalGlucose)
+
 
 class BVSeq:
     def __init__(self):
@@ -9869,6 +10144,8 @@ class BVSeqVeins:
     def Dervs_func(self):
         self.DxMax = 0.8
         self.Change = self.Conductance * ( RegionalPressure.LowerVein - self.Pressure )
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class BVSeqArtys:
     def __init__(self):
@@ -9887,6 +10164,8 @@ class BVSeqArtys:
     def Dervs_func(self):
         self.DxMax = 0.2
         self.Change = self.Conductance * ( RegionalPressure.LowerArty - self.Pressure )
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class CardiacCycle:
     def __init__(self):
@@ -9918,6 +10197,8 @@ class HypothalamusSweatingAcclimation:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( HeatSkin.Temp_C )
+        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx)
+
 
 class HypothalamusShivering:
     def __init__(self):
@@ -10014,6 +10295,8 @@ class HypothalamusShiveringAcclimation:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( HeatSkin.Temp_C )
+        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx)
+
 
 class RespiratoryCenter_Exercise:
     def __init__(self):
@@ -10142,6 +10425,8 @@ class GlucagonPool:
         self.Gain = GlucagonSecretion.Rate
         self.Loss = GlucagonClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class GlucagonClearance:
     def __init__(self):
@@ -10195,6 +10480,8 @@ class NephronANP:
             self.Log10Conc = 0.0
 
         self.conc_ANPPool = ANPPool.conc_ANP
+        self.conc_ANPDelayed = delay( self.K, self.conc_ANPPool, self.conc_ANPDelayed, System.Dx)
+
 
 class NephronIFP:
     def __init__(self):
@@ -10245,6 +10532,8 @@ class NephronAldo:
             self.conc_Aldo_nGperdL = self.conc_AldoDelayed
 
         self.conc_AldoPool = AldoPool.conc_Aldo_nGperdL
+        self.conc_AldoDelayed = delay( self.K, self.conc_AldoPool, self.conc_AldoDelayed, System.Dx)
+
 
 class VasaRecta:
     def __init__(self):
@@ -10302,6 +10591,8 @@ class NephronADH:
             self.Log10Conc = 0.0
 
         self.conc_ADHPool = ADHPool.conc_ADH
+        self.conc_ADHDelayed = delay( self.K, self.conc_ADHPool, self.conc_ADHDelayed, System.Dx)
+
 
 class NephronKetoacids:
     def __init__(self):
@@ -10479,7 +10770,7 @@ class GlomerulusFiltrate:
         self.PT_Pressure = None
         self.PT_Conductance = 7.0
         self.PelvisPressure = 0.0
-
+        self.GFR = 125.0
     def AdjustIons_func(self):
         self.KAdjustment = ( BloodIons.Cations - BloodIons.AnionsLessProtein ) / ( BloodIons.Cations + BloodIons.AnionsLessProtein )
         self.AnionAdjustment = 1.0 + self.KAdjustment
@@ -10498,18 +10789,18 @@ class GlomerulusFiltrate:
                 self.Failed_func()
             else:
 
-                def implicitfunc(GFR):
-                    self.FiltrationFraction = self.GFR / Kidney_Flow.PlasmaFlow
+                def GFRimplicitfunc(GFR):
+                    self.FiltrationFraction = GFR / Kidney_Flow.PlasmaFlow
                     self.conc_EffProtein = PlasmaProtein.conc_Protein / ( 1.0 - self.FiltrationFraction )
                     Colloids.conc_Prot = self.conc_EffProtein
                     Colloids.GetPres_func()
                     self.EffCOP = Colloids.Pres
-                    self.PT_Pressure = self.PelvisPressure + ( self.GFR / self.PT_Conductance )
+                    self.PT_Pressure = self.PelvisPressure + ( GFR / self.PT_Conductance )
                     self.PressureGradient = self.Pressure - self.EffCOP - self.PT_Pressure
-                    self.EndGFR = self.Kf * self.PressureGradient
-                    return self.EndGFR
+                    EndGFR = self.Kf * self.PressureGradient
 
-                self.GFR = impliciteq( self.EndGFR, implicitfunc, 125.0, 1.25)
+                    return EndGFR
+                self.GFR = impliciteq( GFRimplicitfunc, self.GFR, 1.25)
                 self.GFRxNormal = self.GFR / self.GFRNORMAL
                 GlomerulusBicarbonate.Calc_func()
                 GlomerulusChloride.Calc_func()
@@ -10526,7 +10817,7 @@ class GlomerulusFiltrate:
         self.GFR = 0.0
         self.EndGFR = 0.0
         self.GFRxNormal = 0.0
-        self.FiltrationFraction = None
+        self.FiltrationFraction = 0
         self.EffCOP = self.Pressure
         Colloids.Pres = self.EffCOP
         Colloids.Getconc_Prot_func()
@@ -10584,7 +10875,7 @@ class MD_Na:
         self.Na_Flow = None
 
     def Calc_func(self):
-        if LH_Na.conc_Na_ ==None:
+        if LH_Na.conc_Na_ ==0:
             self.conc_Na__mEqperL = 0.0
         else:
             self.conc_Na__mEqperL = LH_Na.conc_Na_
@@ -10630,7 +10921,7 @@ class TGF_Vascular:
         else:
             self.Steady_State = self.BasicSignal * self.NaEffect * self.A2Effect * self.ANPEffect * self.FurosemideEffect
 
-        self.Signal = delay( self.K, self.Steady_State, 1.0, delta_t)
+        self.Signal = delay( self.K, self.Steady_State, self.Signal, System.Dx)
 
 
 class MedullaUrea:
@@ -10655,6 +10946,8 @@ class MedullaUrea:
     def Dervs_func(self):
         self.Washup = self.CCK * self.conc_Urea * VasaRecta.Outflow
         self.Change = CD_Urea.Reab - self.Washup
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class MedullaNa:
     def __init__(self):
@@ -10677,6 +10970,8 @@ class MedullaNa:
     def Dervs_func(self):
         self.Washup = self.CCK * self.conc_Na_ * VasaRecta.Outflow
         self.Change = CD_Na.Reab - self.Washup
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Medulla:
     def __init__(self):
@@ -10737,7 +11032,7 @@ class PT_Na:
         if PT_H2O.Outflow > 0.0:
             self.conc_Na_ = 1000.0 * self.Outflow / PT_H2O.Outflow
         else:
-            self.conc_Na_ = None
+            self.conc_Na_ = 0
 
 
 class PT_H2O:
@@ -10774,6 +11069,8 @@ class PT_NH3:
         self.AcutePhEffect = self.PhOnAcute_curve( BloodPh.ArtysPh )
         self.ChronicPhEffect = self.PhOnChronic_curve( BloodPh.ArtysPh )
         self.SecretionRate = self.BasicRate * self.AcutePhEffect * self.ChronicDelay
+        self.ChronicDelay = delay( self.K, self.ChronicPhEffect, self.ChronicDelay, System.Dx)
+
 
 class ProximalTubule:
     def __init__(self):
@@ -10803,8 +11100,8 @@ class CD_Urea:
         self.Inflow = 0.0
         self.Reab = 0.0
         self.Outflow = 0.0
-        self.conc_Urea = None
-        self.conc_Urea_mGperdL = None
+        self.conc_Urea = 0
+        self.conc_Urea_mGperdL = 0
         self.Osmolarity = 0.0
 
 class CD_K:
@@ -10827,8 +11124,8 @@ class CD_K:
     def NoFlow_func(self):
         self.Inflow = 0.0
         self.Outflow = 0.0
-        self.conc_K_ = None
-        self.conc_K__mEqperL = None
+        self.conc_K_ = 0
+        self.conc_K__mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_NH4:
@@ -10858,8 +11155,8 @@ class CD_NH4:
     def NoFlow_func(self):
         self.Inflow = 0.0
         self.Outflow = 0.0
-        self.conc_NH4 = None
-        self.conc_NH4_mEqperL = None
+        self.conc_NH4 = 0
+        self.conc_NH4_mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_PO4:
@@ -10882,8 +11179,8 @@ class CD_PO4:
     def NoFlow_func(self):
         self.Inflow = 0.0
         self.Outflow = 0.0
-        self.conc_PO4__ = None
-        self.conc_PO4___mEqperL = None
+        self.conc_PO4__ = 0
+        self.conc_PO4___mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_Glucose:
@@ -10903,8 +11200,8 @@ class CD_Glucose:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_Glucose = None
-        self.conc_Glucose_mMolperL = None
+        self.conc_Glucose = 0
+        self.conc_Glucose_mMolperL = 0
         self.Osmolarity = 0.0
 
 class CD_Cl:
@@ -10924,8 +11221,8 @@ class CD_Cl:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_Cl_ = None
-        self.conc_Cl__mEqperL = None
+        self.conc_Cl_ = 0
+        self.conc_Cl__mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_KA:
@@ -10945,8 +11242,8 @@ class CD_KA:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_KA = None
-        self.conc_KA_mMolperL = None
+        self.conc_KA = 0
+        self.conc_KA_mMolperL = 0
         self.Osmolarity = 0.0
 
 class CD_HCO3:
@@ -10966,8 +11263,8 @@ class CD_HCO3:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_HCO3 = None
-        self.conc_HCO3_mEqperL = None
+        self.conc_HCO3 = 0
+        self.conc_HCO3_mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_SO4:
@@ -10990,8 +11287,8 @@ class CD_SO4:
     def NoFlow_func(self):
         self.Inflow = 0.0
         self.Outflow = 0.0
-        self.conc_SO4 = None
-        self.conc_SO4_mEqperL = None
+        self.conc_SO4 = 0
+        self.conc_SO4_mEqperL = 0
         self.Osmolarity = 0.0
 
 class CD_Protein:
@@ -11007,7 +11304,7 @@ class CD_Protein:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_Protein_GpermL = None
+        self.conc_Protein_GpermL = 0
 
 class CD_Creatinine:
     def __init__(self):
@@ -11030,8 +11327,8 @@ class CD_Creatinine:
 
     def NoFlow_func(self):
         self.Outflow = 0.0
-        self.conc_Creatinine = None
-        self.conc_Creatinine_mGperdL = None
+        self.conc_Creatinine = 0
+        self.conc_Creatinine_mGperdL = 0
         self.Osmolarity = 0.0
 
 class CD_H2OChannels:
@@ -11046,6 +11343,8 @@ class CD_H2OChannels:
 
     def CalcDervs_func(self):
         self.Change = ( self.InactivateK * CD_H2O.Reab ) - ( self.ReactivateK * self.Inactive )
+        self.Inactive = diffeq( self.Change, System.Dx, self.Inactive)
+
 
 class CD_Na:
     def __init__(self):
@@ -11095,8 +11394,8 @@ class CD_Na:
         self.Inflow = 0.0
         self.Reab = 0.0
         self.Outflow = 0.0
-        self.conc_Na_ = None
-        self.conc_Na__mEqperL = None
+        self.conc_Na_ = 0
+        self.conc_Na__mEqperL = 0
         self.Osmolarity = 0.0
 
 class CollectingDuct:
@@ -11358,7 +11657,7 @@ class LH_Na:
         if LH_H2O.Outflow > 0.0:
             self.conc_Na_ = 1000.0 * self.Outflow / LH_H2O.Outflow
         else:
-            self.conc_Na_ = None
+            self.conc_Na_ = 0
 
 
 class LH_H2O:
@@ -11415,6 +11714,8 @@ class Testosterone:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class HeartValves:
 
@@ -11548,8 +11849,10 @@ class DialyzerActivity:
         self.K_Flux = None
         self.Cl_Flux = None
         self.UreaFlux = None
-        set_timervar("IntervalTimer", "unchanged", "unchanged")
-        set_timervar("DurationTimer", "unchanged", "unchanged")
+        self.IntervalTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.IntervalTimer)
+        self.DurationTimer = Timer(0, "None", System.Dx)
+        timervars.append(self.DurationTimer)
         self.TotalDialysateUsed = 0.0
         self.TotalUltrafiltration = 0.0
 
@@ -11574,16 +11877,22 @@ class DialyzerActivity:
             self.UreaFlux = 0.0
         self.DialysateChange = self.DialysateFlow
         self.UltrafiltrationChange = self.UltrafiltrationRate
+        self.TotalDialysateUsed = diffeq( self.DialysateChange, System.Dx, self.TotalDialysateUsed)
+
+        self.TotalUltrafiltration = diffeq( self.UltrafiltrationChange, System.Dx, self.TotalUltrafiltration)
+
 
     def Wrapup_func(self):
         if self.query_Scheduled:
-            pass
-        else:
-            self.timervars["IntervalTimer"][2] = self.Start
+            if self.IntervalTimer == 0:
+                self.Start()
             if self.query_Active:
-                pass
+                if self.DurationTimer == 0:
+                    self.StopDuration()
             else:
-                self.timervars["DurationTimer"][2] = self.StopDuration
+                pass
+        else:
+            pass
 
     def Start_func(self):
         self.StartSchedule_func()
@@ -11595,19 +11904,21 @@ class DialyzerActivity:
 
     def StartSchedule_func(self):
         self.query_Scheduled = True
-        set_timervar("IntervalTimer", "1440.0 * DialyzerControl.Interval_Days", " self.DOWN ")
+        self.IntervalTimer.val = 1440.0 * DialyzerControl.Interval_Days
+        self.IntervalTimer.state = " self.DOWN "
 
     def StopSchedule_func(self):
         self.query_Scheduled = False
-        set_timervar("IntervalTimer", "unchanged", " self.OFF ")
+        self.IntervalTimer.state = " self.OFF "
 
     def StartDuration_func(self):
         self.query_Active = True
-        set_timervar("DurationTimer", "60.0 * DialyzerControl.Duration_Hrs", " self.DOWN ")
+        self.DurationTimer.val = 60.0 * DialyzerControl.Duration_Hrs
+        self.DurationTimer.state = " self.DOWN "
 
     def StopDuration_func(self):
         self.query_Active = False
-        set_timervar("DurationTimer", "unchanged", " self.OFF ")
+        self.DurationTimer.state = " self.OFF "
 
 class DialysateComposition:
     def __init__(self):
@@ -11709,6 +12020,8 @@ class ANPSecretion:
         else:
             self.Rate = self.NaturalRate
 
+        self.NaturalRate = delay( self.K, self.SteadyState, self.NaturalRate, System.Dx)
+
 
 class ANPPool:
     def __init__(self):
@@ -11744,6 +12057,8 @@ class ANPPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = ANPClearance.K
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+
 
 class ANPClearance:
     def __init__(self):
@@ -11823,6 +12138,8 @@ class CreatininePool:
         self.Gain = CreatineCells.CreatineToCreatinine
         self.Loss = self.RenalLoss + self.ExtrarenalLoss
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Creatinine:
 
@@ -11902,7 +12219,7 @@ class Transfusion:
         self.NaRate = 0.140 * self.Rate
         self.KRate = 0.0044 * self.Rate
         self.ClRate = 0.105 * self.Rate
-        self.Volume = diffeq( self.Rate, delta_t, self.Volume)
+        self.Volume = diffeq( self.Rate, System.Dx, self.Volume)
 
 
     def CalcVol_func(self):
@@ -11969,6 +12286,8 @@ class BladderChloride:
 
     def Dervs_func(self):
         self.Change = CD_Cl.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Cl_ = self.Mass / BladderVolume.Mass
@@ -11985,6 +12304,8 @@ class BladderSulphate:
 
     def Dervs_func(self):
         self.Change = CD_SO4.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_SO4__ = self.Mass / BladderVolume.Mass
@@ -12001,6 +12322,8 @@ class BladderKetoacid:
 
     def Dervs_func(self):
         self.Change = CD_KA.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_KA_ = self.Mass / BladderVolume.Mass
@@ -12017,6 +12340,8 @@ class BladderCreatinine:
 
     def Dervs_func(self):
         self.Change = CD_Creatinine.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Creatinine = self.Mass / BladderVolume.Mass
@@ -12033,6 +12358,8 @@ class BladderGlucose:
 
     def Dervs_func(self):
         self.Change = CD_Glucose.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Glucose = self.Mass / BladderVolume.Mass
@@ -12049,6 +12376,8 @@ class BladderUrea:
 
     def Dervs_func(self):
         self.Change = CD_Urea.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Urea = self.Mass / BladderVolume.Mass
@@ -12065,6 +12394,8 @@ class BladderPotassium:
 
     def Dervs_func(self):
         self.Change = CD_K.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_K_ = self.Mass / BladderVolume.Mass
@@ -12081,6 +12412,8 @@ class BladderPhosphate:
 
     def Dervs_func(self):
         self.Change = CD_PO4.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_PO4__ = self.Mass / BladderVolume.Mass
@@ -12097,6 +12430,8 @@ class BladderSodium:
 
     def Dervs_func(self):
         self.Change = CD_Na.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Na_ = self.Mass / BladderVolume.Mass
@@ -12113,6 +12448,8 @@ class BladderProtein:
 
     def Dervs_func(self):
         self.Change = CD_Protein.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_Protein = self.Mass / BladderVolume.Mass
@@ -12129,6 +12466,8 @@ class BladderBicarbonate:
 
     def Dervs_func(self):
         self.Change = CD_HCO3.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_HCO3_ = self.Mass / BladderVolume.Mass
@@ -12145,6 +12484,8 @@ class BladderAmmonia:
 
     def Dervs_func(self):
         self.Change = CD_NH4.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Conc_func(self):
         self.conc_NH4_ = self.Mass / BladderVolume.Mass
@@ -12160,6 +12501,8 @@ class BladderVolume:
 
     def Dervs_func(self):
         self.Change = CD_H2O.Outflow
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Void_func(self):
         self.VolumeVoid = self.Mass - 300.0
@@ -12183,7 +12526,7 @@ class Hemorrhage:
         else:
             self.Rate = 0.0
 
-        self.Volume = diffeq( self.Rate, delta_t, self.Volume)
+        self.Volume = diffeq( self.Rate, System.Dx, self.Volume)
 
 
     def Dervs_func(self):
@@ -12227,7 +12570,7 @@ class LeftHeart_Lactate:
         self.Used_mGperMin = LeftHeart_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / LeftHeart_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -12236,6 +12579,8 @@ class LeftHeart_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LeftHeart_Metabolism:
     def __init__(self):
@@ -12274,6 +12619,8 @@ class LeftHeart_Infarction:
         self.DeadTissueK = 0.004
         self.DamagedTissueFraction = self.Areapercent / 100.0
         self.Effect = 1.0 - self.DamagedTissueFraction
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+
 
     def Dervs_func(self):
         self.IschemicTissueFraction = self.DamagedTissueFraction - self.DeadTissueFraction
@@ -12285,7 +12632,7 @@ class LeftHeart_Infarction:
             self.IsIschemic = True
         else:
             pass
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, 0.0, delta_t)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
 
 
 class LeftHeart_Flow:
@@ -12305,7 +12652,7 @@ class LeftHeart_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 16.8
     def SympsOnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.0, 4.0], [1.3, 1.0, 0.8], [0.0, -0.16, 0.0])
 
@@ -12328,12 +12675,12 @@ class LeftHeart_Flow:
         self.MetabolismEffect = self.MetabolismOnConductance_curve( LeftHeart_Metabolism.O2Need )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.SmallVesselConductance = self.SmallVesselBasicConductance * self.SympsEffect * self.PO2Effect * self.ADHEffect * self.MetabolismEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * LeftHeart_Vasculature.Effect * LeftHeart_Infarction.Effect
             self.Conductance = ( self.SmallVesselConductance * self.LargeVesselConductance ) / ( self.SmallVesselConductance + self.LargeVesselConductance )
             self.BloodFlow = ( max( ( LeftHeart_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = LeftHeart_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -12342,10 +12689,10 @@ class LeftHeart_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 16.8, 0.17)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.17)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class LeftHeart_Function:
@@ -12492,7 +12839,7 @@ class LeftHeart_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( LeftHeart_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class LeftHeart_Ph:
@@ -12577,7 +12924,7 @@ class LeftHeart_CO2:
 
     def CalcDervs_func(self):
         self.K = LeftHeart_Flow.BloodFlow / LeftHeart_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -12592,6 +12939,8 @@ class LeftHeart_CO2:
         self.Outflow_0 = LeftHeart_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LeftHeart_Structure:
     def __init__(self):
@@ -12615,6 +12964,8 @@ class LeftHeart_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class LeftHeart_Fuel:
     def __init__(self):
@@ -12682,6 +13033,8 @@ class LeftHeart_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class LeftHeart_ContractileProtein:
 
@@ -12690,6 +13043,8 @@ class LeftHeart_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Exercise_Treadmill:
     def __init__(self):
@@ -12699,7 +13054,8 @@ class Exercise_Treadmill:
         self.RunOrWalk = 0.0
         self.Power_W = None
         self.Power_kPMperMin = None
-        set_timervar("ElapsedTime", "0.0", "unchanged")
+        self.ElapsedTime = Timer(0.0, "None", System.Dx)
+        timervars.append(self.ElapsedTime)
         self.Efficiency = None
         self.TotalWatts = None
         self.Speed_FPM = None
@@ -12736,16 +13092,18 @@ class Exercise_Treadmill:
 
     def Dervs_func(self):
         if Status.Exertion == 4:
-            set_timervar("ElapsedTime", "unchanged", " self.UP ")
+            self.ElapsedTime.state = " self.UP "
             self.Velocity = self.Speed_FPM
         else:
-            set_timervar("ElapsedTime", "unchanged", " self.OFF ")
+            self.ElapsedTime.state = " self.OFF "
             self.Velocity = 0.0
         self.Distance_Miles = self.DistanceTraveled_Feet / 5280.0
         self.Distance_kM = 1.609 * self.Distance_Miles
+        self.DistanceTraveled_Feet = diffeq( self.Velocity, System.Dx, self.DistanceTraveled_Feet)
+
 
     def ResetTime_and_Distance_func(self):
-        set_timervar("ElapsedTime", "0.0", "unchanged")
+        self.ElapsedTime.val = 0.0
         self.DistanceTraveled_Feet = 0.0
 
 class Exercise_MusclePump:
@@ -12763,7 +13121,8 @@ class Exercise_Bike:
         self.Power_W = 0.0
         self.Power_kPMperMin = None
         self.RPM = 50.0
-        set_timervar("ElapsedTime", "0.0", "unchanged")
+        self.ElapsedTime = Timer(0.0, "None", System.Dx)
+        timervars.append(self.ElapsedTime)
         self.WattToKPMM = 6.12
         self.Efficiency_percent = 30.0
         self.Efficiency = None
@@ -12774,12 +13133,12 @@ class Exercise_Bike:
         self.Efficiency = 0.01 * self.Efficiency_percent
         self.TotalWatts = self.Power_W / self.Efficiency
         if Status.Exertion == 3:
-            set_timervar("ElapsedTime", "unchanged", " self.UP ")
+            self.ElapsedTime.state = " self.UP "
         else:
-            set_timervar("ElapsedTime", "unchanged", " self.OFF ")
+            self.ElapsedTime.state = " self.OFF "
 
     def ResetElapsedTime_func(self):
-        set_timervar("ElapsedTime", "0.0", "unchanged")
+        self.ElapsedTime.val = 0.0
 
 class Exercise_Motivation:
     def __init__(self):
@@ -12833,6 +13192,12 @@ class Exercise_Metabolism:
         self.TotalCals = self.WattsToCals * self.TotalWatts
         self.MotionCals = self.WattsToCals * self.MotionWatts
         self.HeatCals = self.WattsToCals * self.HeatWatts
+        self.TotalWatts = delay( self.TotalWattsK, self.TargetTotalWatts, self.TotalWatts, System.Dx)
+
+        self.MotionWatts = delay( self.MotionWattsK, self.TargetMotionWatts, self.MotionWatts, System.Dx)
+
+        self.ContractionRate = delay( self.ContractionRateK, self.TargetContractionRate, self.ContractionRate, System.Dx)
+
 
 class Exercise:
     def __init__(self):
@@ -12931,7 +13296,8 @@ class Pheochromocytoma:
         self.FractSec = 0.0
         self.FRACTSEC = 0.004
         self.Severity = 0.0
-        set_timervar("Timer", "unchanged", "unchanged")
+        self.Timer = Timer(0, "None", System.Dx)
+        timervars.append(self.Timer)
         self.Period = 0.0
         self.Switch = False
         self.LastState = False
@@ -12947,30 +13313,34 @@ class Pheochromocytoma:
         self.EpiRate = self.EpiFract * self.Rate
         self.NERate = self.NEFract * self.Rate
         self.Change = self.Switch * self.Severity - self.Rate
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Wrapup_func(self):
         if self.Switch:
-            pass
-        else:
-            if self.Timer < self.Period:
+            if Timer < self.Period:
                 pass
             else:
                 if self.InEpisode:
                     self.TurnOff_func()
                 else:
                     self.TurnOn_func()
+        else:
+            pass
 
     def TurnOff_func(self):
         self.InEpisode = False
         self.FractSec = 0.0
         self.Period = self.Noise * self.MAXPAUSE
-        set_timervar("Timer", "0.0", " self.UP ")
+        self.Timer.val = 0.0
+        self.Timer.state = " self.UP "
 
     def TurnOn_func(self):
         self.InEpisode = True
         self.FractSec = self.FRACTSEC
         self.Period = self.Noise * self.MAXEPISODE
-        set_timervar("Timer", "0.0", " self.UP ")
+        self.Timer.val = 0.0
+        self.Timer.state = " self.UP "
 
 class NEPool:
     def __init__(self):
@@ -12997,6 +13367,8 @@ class NEPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = 1000 * NEClearance.K / ECFV.Vol
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+
 
 class EpiPump:
     def __init__(self):
@@ -13103,6 +13475,8 @@ class EpiPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = 1000.0 * EpiClearance.K / ECFV.Vol
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+
 
 class NEClearance:
     def __init__(self):
@@ -13216,6 +13590,8 @@ class Inhibin:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class UreaPool:
     def __init__(self):
@@ -13256,6 +13632,8 @@ class UreaPool:
         self.Gain = LM_AminoAcids.Urea + self.FluxFromCells
         self.Loss = CD_Urea.Outflow
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Urea:
 
@@ -13293,6 +13671,8 @@ class UreaCell:
 
     def Dervs_func(self):
         self.Change = ( UreaPool.conc_Urea - self.conc_Urea ) * self.DC
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class EPOClearance:
     def __init__(self):
@@ -13345,6 +13725,8 @@ class EPOPool:
         self.Gain = EPOSecretion.Rate + EPOPump.Rate
         self.Loss = EPOClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class EPO:
 
@@ -13400,6 +13782,8 @@ class LacPool:
 
     def CalcDervs_func(self):
         self.Change = Bone_Lactate.Outflux + Brain_Lactate.Outflux + Fat_Lactate.Outflux + GITract_Lactate.Outflux + Kidney_Lactate.Outflux + LeftHeart_Lactate.Outflux + Liver_Lactate.Outflux + OtherTissue_Lactate.Outflux + RespiratoryMuscle_Lactate.Outflux + RightHeart_Lactate.Outflux + SkeletalMuscle_Lactate.Outflux + Skin_Lactate.Outflux + self.PumpRate
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Infusions:
     def __init__(self):
@@ -13696,7 +14080,7 @@ class Brain_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 37.0
     def PO2OnTension_curve(self, x):
         return cubic_hermite_spline(x, [22.0, 36.0, 60.0], [0.0, 1.0, 1.2], [0.0, 0.02, 0.0])
 
@@ -13713,13 +14097,13 @@ class Brain_Flow:
         self.PCO2OnTension = self.PCO2OnTension_curve( Brain_CO2.PCO2 )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2OnTension = self.PO2OnTension_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2OnTension = self.PO2OnTension_curve( PO2 )
             self.TotalTension = self.PO2OnTension * self.PCO2OnTension * Anesthesia.VascularConductance
             self.TensionEffect = self.TensionOnConductance_curve( self.TotalTension )
             self.Conductance = self.BasicConductance * self.TensionEffect * Viscosity.ConductanceEffect * Brain_Vasculature.Effect
             self.BloodFlow = ( max( ( Brain_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = Brain_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -13728,10 +14112,10 @@ class Brain_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 37.0, 0.37)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.37)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class Seizure:
@@ -13845,7 +14229,7 @@ class Brain_CO2:
 
     def CalcDervs_func(self):
         self.K = Brain_Flow.BloodFlow / Brain_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -13860,6 +14244,8 @@ class Brain_CO2:
         self.Outflow_0 = Brain_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Brain_Fuel:
     def __init__(self):
@@ -13927,6 +14313,8 @@ class Brain_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class Brain_Lactate:
     def __init__(self):
@@ -13958,7 +14346,7 @@ class Brain_Lactate:
         self.Used_mGperMin = Brain_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Brain_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -13967,6 +14355,8 @@ class Brain_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Brain_Metabolism:
     def __init__(self):
@@ -14015,6 +14405,8 @@ class Brain_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class GlasgowComaScale:
     def __init__(self):
@@ -14055,7 +14447,7 @@ class Brain_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Brain_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class Brain_Size:
@@ -14132,6 +14524,8 @@ class BrainInsult_PO2:
         self.K = 4.0
         self.DxMax = 1.0
         self.PO2 = Brain_Flow.PO2
+        self.PO2Delay = delay( self.K, self.PO2, self.PO2Delay, System.Dx)
+
 
 class BrainInsult_Temperature:
     def __init__(self):
@@ -14302,6 +14696,8 @@ class LeftAtrium:
         self.Inflow = PulmVeins.Outflow
         self.Outflow = LeftVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class SplanchnicVeins:
     def __init__(self):
@@ -14329,6 +14725,8 @@ class SplanchnicVeins:
         self.Inflow = OrganFlow.HepaticVeinFlow
         self.Outflow = self.Conductance * ( self.Pressure - RightAtrium.Pressure )
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class PulmVeins:
     def __init__(self):
@@ -14356,6 +14754,8 @@ class PulmVeins:
         self.Inflow = PulmCapys.Outflow
         self.Outflow = self.Conductance * ( self.Pressure - LeftAtrium.Pressure )
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class PulmArty:
     def __init__(self):
@@ -14389,6 +14789,8 @@ class PulmArty:
 
         self.Inflow = RightVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
     def PulsatilePressure_func(self):
         self.SBP = self.Pressure + ( self.KS * ( CardiacOutput.StrokeVolume / self.Compliance ) )
@@ -14406,6 +14808,8 @@ class RightVentricle:
         self.Vol_SteadyState = ( RightHeartPumping_Diastole.EDV + RightHeartPumping_Systole.ESV ) / 2.0
         self.K = 1.0
         self.DxMax = 1.0
+        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx)
+
 
 class RightAtrium:
     def __init__(self):
@@ -14430,6 +14834,8 @@ class RightAtrium:
         self.Inflow = SystemicVeins.Outflow + SplanchnicVeins.Outflow
         self.Outflow = RightVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class LeftVentricle:
     def __init__(self):
@@ -14443,6 +14849,8 @@ class LeftVentricle:
         self.Vol_SteadyState = ( LeftHeartPumping_Diastole.EDV + LeftHeartPumping_Systole.ESV ) / 2.0
         self.K = 1.0
         self.DxMax = 1.0
+        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx)
+
 
 class VascularCompartments:
 
@@ -14504,6 +14912,8 @@ class SystemicArtys:
         self.Inflow = LeftVentricle.Outflow
         self.Outflow = OrganFlow.HepaticVeinFlow + OrganFlow.PeripheralFlow
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
     def PulsatilePressure_func(self):
         self.SBP = self.Pressure + ( self.KS * ( CardiacOutput.StrokeVolume / self.Compliance ) )
@@ -14542,6 +14952,8 @@ class PulmCapys:
 
         self.Inflow = PulmArty.Outflow
         self.Change = self.Inflow - self.Outflow
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+
 
 class SystemicVeins:
     def __init__(self):
@@ -14625,6 +15037,8 @@ class Ovaries_CorpusLuteum:
         self.Growth = CorpusLuteum_Growth.Growth
         self.Involution = CorpusLuteum_Involution.Rate
         self.Change = self.Growth - self.Involution
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Wrapup_func(self):
         if ( query_Ovaries.Cycling ) and ( Ovaries.Phase == Ovaries.IS_LUTEAL ) and ( self.Mass < 100.0 ):
@@ -14646,6 +15060,8 @@ class Ovaries_Follicle:
         self.Growth = Follicle_Growth.Growth
         self.Atresia = Follicle_Atresia.Rate
         self.Change = self.Growth - self.Atresia
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def Wrapup_func(self):
         if ( query_Ovaries.Cycling ) and ( Ovaries.Phase != Ovaries.IS_FOLLICULAR ) and ( ( self.Mass + Ovaries_CorpusLuteum.Mass ) <= 400.0 ) and ( FSH_Circulating.conc_Conc_IUperL > 3.0 ):
@@ -14794,7 +15210,7 @@ class CorpusLuteum_Growth:
 class Ovaries_Ovulation:
     def __init__(self):
         self.AnnounceOvulation = False
-        self.LastOvulation = None
+        self.LastOvulation = 0
 
     def Wrapup_func(self):
         if ( Ovaries.Phase == Ovaries.IS_OVULATORY ) and ( Progesterone.conc_Conc_nMolperL >= 8.0 ):
@@ -14960,6 +15376,8 @@ class AnesthesiaIVRespiratoryMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * RespiratoryMuscle_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVRightHeart:
     def __init__(self):
@@ -14975,6 +15393,8 @@ class AnesthesiaIVRightHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * RightHeart_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVSkin:
     def __init__(self):
@@ -14990,6 +15410,8 @@ class AnesthesiaIVSkin:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Skin_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVInjection:
     def __init__(self):
@@ -15004,6 +15426,8 @@ class AnesthesiaIVInjection:
     def Dervs_func(self):
         self.Loss = self.K * self.Mass
         self.Change = - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
     def InjectNow_func(self):
         self.Mass = self.Mass + self.Dose
@@ -15029,6 +15453,8 @@ class AnesthesiaIVBone:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Bone_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIV:
 
@@ -15086,6 +15512,8 @@ class AnesthesiaIVLeftHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * LeftHeart_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVInfusion:
     def __init__(self):
@@ -15124,6 +15552,8 @@ class AnesthesiaIVGITract:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * GITract_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVSkeletalMuscle:
     def __init__(self):
@@ -15139,6 +15569,8 @@ class AnesthesiaIVSkeletalMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * SkeletalMuscle_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVBlood:
     def __init__(self):
@@ -15154,6 +15586,8 @@ class AnesthesiaIVBlood:
         self.Gain = AnesthesiaIVInjection.Loss + AnesthesiaIVInfusion.Rate
         self.Loss = AnesthesiaIVBone.Uptake + AnesthesiaIVBrain.Uptake + AnesthesiaIVFat.Uptake + AnesthesiaIVGITract.Uptake + AnesthesiaIVKidney.Uptake + AnesthesiaIVLeftHeart.Uptake + AnesthesiaIVLiver.Uptake + AnesthesiaIVOtherTissue.Uptake + AnesthesiaIVRespiratoryMuscle.Uptake + AnesthesiaIVRightHeart.Uptake + AnesthesiaIVSkeletalMuscle.Uptake + AnesthesiaIVSkin.Uptake
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVLiver:
     def __init__(self):
@@ -15178,6 +15612,8 @@ class AnesthesiaIVLiver:
         self.Uptake = ( self.conc_Arty - self.conc_Vein ) * OrganFlow.HepaticVeinFlow
         self.Degrade = self.DegradeK * self.Mass
         self.Change = self.Uptake - self.Degrade
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVBrain:
     def __init__(self):
@@ -15203,6 +15639,8 @@ class AnesthesiaIVBrain:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Brain_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVKidney:
     def __init__(self):
@@ -15218,6 +15656,8 @@ class AnesthesiaIVKidney:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Kidney_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVFat:
     def __init__(self):
@@ -15233,6 +15673,8 @@ class AnesthesiaIVFat:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Fat_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class AnesthesiaIVOtherTissue:
     def __init__(self):
@@ -15253,6 +15695,8 @@ class AnesthesiaIVOtherTissue:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * OtherTissue_Flow.BloodFlow
         self.Change = self.Uptake
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Autopsy:
     def __init__(self):
@@ -15471,6 +15915,8 @@ class LH_AnteriorPituitary:
         self.InhibinEffect = self.InhibinEffect_curve( Inhibin.conc_Conc_IUperL )
         self.TestosteroneEffect = self.TestosteroneEffect_curve( Testosterone.conc_Conc_nMolperL )
         self.Secretion = self.BasicSecretion * self.GnRHEffect * self.EstradiolEffectDelayed * self.InhibinEffect * self.TestosteroneEffect
+        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx)
+
 
 class LH:
 
@@ -15520,6 +15966,8 @@ class LH_Circulating:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Fat_Flow:
     def __init__(self):
@@ -15534,7 +15982,7 @@ class Fat_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 52.0
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -15556,11 +16004,11 @@ class Fat_Flow:
         self.ADHEffect = self.ADHOnConductance_curve( ADHPool.Log10Conc )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * Fat_Vasculature.Effect
             self.BloodFlow = ( max( ( Fat_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = Fat_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -15569,10 +16017,10 @@ class Fat_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 52.0, 0.52)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.52)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class Fat_Ph:
@@ -15655,7 +16103,7 @@ class Fat_Lactate:
         self.Used_mGperMin = Fat_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Fat_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -15664,6 +16112,8 @@ class Fat_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Fat_CO2:
     def __init__(self):
@@ -15689,7 +16139,7 @@ class Fat_CO2:
 
     def CalcDervs_func(self):
         self.K = Fat_Flow.BloodFlow / Fat_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -15704,6 +16154,8 @@ class Fat_CO2:
         self.Outflow_0 = Fat_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Fat_Pressure:
     def __init__(self):
@@ -15739,7 +16191,7 @@ class Fat_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Fat_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class Fat_AlphaReceptors:
@@ -15833,6 +16285,8 @@ class Fat_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class Fat_Structure:
     def __init__(self):
@@ -15856,6 +16310,8 @@ class Fat_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class Fat_Metabolism:
     def __init__(self):
@@ -16017,7 +16473,7 @@ class Liver_CO2:
 
     def CalcDervs_func(self):
         self.K = OrganFlow.HepaticVeinFlow / Liver_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -16032,6 +16488,8 @@ class Liver_CO2:
         self.Outflow_0 = ( GITract_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 ) ) + ( HepaticArty.Flow * ( self.conc_BloodHCO3 - GITract_CO2.conc_HCO3 ) )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Liver_AlphaReceptors:
     def __init__(self):
@@ -16076,6 +16534,8 @@ class Liver_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class Liver_Size:
     def __init__(self):
@@ -16130,7 +16590,7 @@ class Liver_O2:
         self.O2Use = None
         self.conc_O2 = None
         self.BloodFlow = None
-
+        self.PO2 = 36.5
     def PO2OnAerobicFraction_curve(self, x):
         return cubic_hermite_spline(x, [2.0, 10.0], [0.0, 1.0], [0.0, 0.0])
 
@@ -16142,8 +16602,8 @@ class Liver_O2:
         self.InflowPO2 = HgbTissue.pO2
         self.SearchMax = self.InflowPO2
 
-        def implicitfunc(PO2):
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = Liver_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = self.Inflowconc_O2 - ( self.O2Use / self.BloodFlow )
@@ -16152,10 +16612,10 @@ class Liver_O2:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 36.5, 0.36)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.36)
 
 class Liver_Function:
     def __init__(self):
@@ -16221,7 +16681,7 @@ class Liver_Lactate:
         self.Used_mGperMin = Liver_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / Liver_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -16230,6 +16690,8 @@ class Liver_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Liver_Fuel:
     def __init__(self):
@@ -16297,6 +16759,8 @@ class Liver_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class KAPump:
     def __init__(self):
@@ -16345,6 +16809,8 @@ class KAPool:
         self.Gain = LM_Ketoacids.Rate + KAPump.Rate
         self.Loss = Brain_Fuel.KAUsed_mGperMin + NephronKetoacids.Excretion + KADecomposition.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class KADecomposition:
     def __init__(self):
@@ -16504,7 +16970,7 @@ class RespiratoryMuscle_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( RespiratoryMuscle_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class RespiratoryMuscle_CO2:
@@ -16531,7 +16997,7 @@ class RespiratoryMuscle_CO2:
 
     def CalcDervs_func(self):
         self.K = RespiratoryMuscle_Flow.BloodFlow / RespiratoryMuscle_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -16546,6 +17012,8 @@ class RespiratoryMuscle_CO2:
         self.Outflow_0 = RespiratoryMuscle_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RespiratoryMuscle_Pressure:
     def __init__(self):
@@ -16571,6 +17039,8 @@ class RespiratoryMuscle_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RespiratoryMuscle_Fuel:
     def __init__(self):
@@ -16632,6 +17102,8 @@ class RespiratoryMuscle_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class RespiratoryMuscle_Ph:
     def __init__(self):
@@ -16679,7 +17151,7 @@ class RespiratoryMuscle_Lactate:
         self.Used_mGperMin = RespiratoryMuscle_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / RespiratoryMuscle_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -16688,6 +17160,8 @@ class RespiratoryMuscle_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RespiratoryMuscle_AlphaReceptors:
     def __init__(self):
@@ -16732,6 +17206,8 @@ class RespiratoryMuscle_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class RespiratoryMuscle_Flow:
     def __init__(self):
@@ -16747,7 +17223,7 @@ class RespiratoryMuscle_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 33.6
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -16773,11 +17249,11 @@ class RespiratoryMuscle_Flow:
         self.MetabolismEffect = self.MetabolismOnConductance_curve( RespiratoryMuscle_Metabolism.O2Need )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * self.MetabolismEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * RespiratoryMuscle_Vasculature.Effect
             self.BloodFlow = ( max( ( RespiratoryMuscle_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = RespiratoryMuscle_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -16786,10 +17262,10 @@ class RespiratoryMuscle_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 33.6, 0.34)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.34)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class RespiratoryMuscle:
@@ -16830,6 +17306,8 @@ class RespiratoryMuscle_Glycogen:
         self.Metabolism_CalperMin = RespiratoryMuscle_Metabolism.AnaerobicCals * self.Availability
         self.Metabolism = self.Metabolism_CalperMin * Metabolism_Tools.CarboAnaerobic_mGperCal
         self.Change = self.MG_TO_G * ( self.Synthesis - self.Metabolism )
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class RespiratoryMuscle_Insulin:
     def __init__(self):
@@ -16841,6 +17319,8 @@ class RespiratoryMuscle_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = InsulinPool.conc_Insulin
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+
 
 class LM_Gluconeogenesis:
     def __init__(self):
@@ -16937,6 +17417,8 @@ class LM_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = PortalVein_Insulin.conc_Insulin
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+
 
 class LM_FattyAcids:
     def __init__(self):
@@ -16982,6 +17464,8 @@ class LM_Glycerol:
         self.Synthesis = 0.0
         self.Metabolism = 0.0
         self.Change = self.Synthesis - self.Metabolism
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LM_FA_AminoAcids:
     def __init__(self):
@@ -17027,6 +17511,8 @@ class LM_Lactate:
         self.Synthesis = 0.0
         self.Metabolism = 0.0
         self.Change = self.Synthesis - self.Metabolism
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LM_Glucose:
     def __init__(self):
@@ -17088,6 +17574,8 @@ class LM_Glycogen:
         self.Gain = LM_Glycogenesis.Rate
         self.Loss = LM_Glycogenolysis.Rate
         self.Change = 0.001 * ( self.Gain - self.Loss )
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class Progesterone:
     def __init__(self):
@@ -17129,6 +17617,8 @@ class Progesterone:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class FSH:
 
@@ -17178,6 +17668,8 @@ class FSH_Circulating:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class FSH_AnteriorPituitary:
     def __init__(self):
@@ -17210,6 +17702,8 @@ class FSH_AnteriorPituitary:
         self.InhibinEffect = self.InhibinEffect_curve( Inhibin.conc_Conc_IUperL )
         self.TestosteroneEffect = self.TestosteroneEffect_curve( Testosterone.conc_Conc_nMolperL )
         self.Secretion = self.BasicSecretion * self.GnRHEffect * self.EstradiolEffectDelayed * self.InhibinEffect * self.TestosteroneEffect
+        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx)
+
 
 class LeptinClearance:
     def __init__(self):
@@ -17260,6 +17754,8 @@ class LeptinPool:
         self.Gain = LeptinSecretion.Rate + LeptinPump.Rate
         self.Loss = LeptinClearance.Rate
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class LeptinSecretion:
     def __init__(self):
@@ -17315,6 +17811,8 @@ class PlasmaProtein:
         self.Gain = self.Synthesis + LymphProtein.Rate + Transfusion.ProteinRate + PeritoneumProtein.Loss + IVDrip.ProteinRate
         self.Loss = self.Degradation + CapillaryProtein.Rate + Hemorrhage.ProteinRate + PeritoneumProtein.Gain + CD_Protein.Outflow
         self.Change = self.Gain - self.Loss
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class CircyProtein:
     def __init__(self):
@@ -17366,7 +17864,7 @@ class CO2Veins:
         else:
             self.conc_HCO3_SteadyState = 0.0
 
-        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, 0.0256, delta_t)
+        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx)
 
 
 class Blood_BaseToGas:
@@ -17416,7 +17914,7 @@ class CO2Artys:
         else:
             self.conc_HCO3_SteadyState = 0.0
 
-        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, 0.0240, delta_t)
+        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx)
 
 
 class CO2:
@@ -17589,6 +18087,8 @@ class CNSTrophicFactor:
 
     def Dervs_func(self):
         self.EffectChange = 0.0
+        self.Effect = diffeq( self.EffectChange, System.Dx, self.Effect)
+
 
 class Chemoreceptors:
     def __init__(self):
@@ -17761,7 +18261,7 @@ class LowPressureReceptors:
             self.NA = self.Level
         elif True:
             self.NA = self.PressureChangeOnNA_curve( self.PressureChange )
-        self.AdaptedPressure = delay( self.RateConst, self.AvePressure, 6.0, delta_t)
+        self.AdaptedPressure = delay( self.RateConst, self.AvePressure, self.AdaptedPressure, System.Dx)
 
 
 class Baroreflex:
@@ -17793,6 +18293,8 @@ class Baroreflex:
 
     def Dervs_func(self):
         self.SinusPressure = CarotidSinus.Pressure
+        self.AdaptedPressure = delay( self.RateConst, self.SinusPressure, self.AdaptedPressure, System.Dx)
+
 
 class SympsChemo:
     def __init__(self):
@@ -17843,6 +18345,8 @@ class ChemoreceptorAcclimation:
 
     def Calc_func(self):
         self.SteadyState = self.SteadyState_curve( Chemoreceptors.BasicFiringRate )
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+
 
 class VagusNerve:
     def __init__(self):
@@ -17884,7 +18388,7 @@ class OtherTissue_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( OtherTissue_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, 1.0, delta_t)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
 
 
 class OtherTissue_Function:
@@ -17987,6 +18491,8 @@ class OtherTissue_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+
 
 class OtherTissue_Size:
     def __init__(self):
@@ -18121,7 +18627,7 @@ class OtherTissue_Lactate:
         self.Used_mGperMin = OtherTissue_Fuel.LacUsed_mGperMin
         self.Used = self.MG_TO_MEQ * self.Used_mGperMin
         self.K = self.DC / OtherTissue_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -18130,6 +18636,8 @@ class OtherTissue_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class OtherTissue_Metabolism:
     def __init__(self):
@@ -18180,7 +18688,7 @@ class OtherTissue_CO2:
 
     def CalcDervs_func(self):
         self.K = OtherTissue_Flow.BloodFlow / OtherTissue_Size.LiquidVol
-        if System.Dx >=None:
+        if System.Dx >=0:
             self.Alpha = 0.0
         elif ( self.K * System.Dx ) >= 100.0:
             self.Alpha = 4E-44
@@ -18195,6 +18703,8 @@ class OtherTissue_CO2:
         self.Outflow_0 = OtherTissue_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+
 
 class OtherTissue_Flow:
     def __init__(self):
@@ -18209,7 +18719,7 @@ class OtherTissue_Flow:
         self.conc_O2 = None
         self.BloodFlow = None
         self.PlasmaFlow = None
-
+        self.PO2 = 45.0
     def A2OnConductance_curve(self, x):
         return cubic_hermite_spline(x, [0.0, 1.3, 3.5], [1.05, 1.0, 0.5], [0.0, -0.08, 0.0])
 
@@ -18231,11 +18741,11 @@ class OtherTissue_Flow:
         self.ADHEffect = self.ADHOnConductance_curve( ADHPool.Log10Conc )
         self.SearchMax = PO2Artys.Pressure
 
-        def implicitfunc(PO2):
-            self.PO2Effect = self.PO2OnConductance_curve( self.PO2 )
+        def PO2implicitfunc(PO2):
+            self.PO2Effect = self.PO2OnConductance_curve( PO2 )
             self.Conductance = self.BasicConductance * self.A2Effect * self.SympsEffect * self.PO2Effect * self.ADHEffect * Viscosity.ConductanceEffect * Anesthesia.VascularConductance * OtherTissue_Vasculature.Effect
             self.BloodFlow = ( max( ( OtherTissue_Pressure.PressureGradient * self.Conductance ), 0.0) )
-            self.AerobicFraction = self.PO2OnAerobicFraction_curve( self.PO2 )
+            self.AerobicFraction = self.PO2OnAerobicFraction_curve( PO2 )
             self.O2Use = OtherTissue_Metabolism.O2Need * self.AerobicFraction
             if self.BloodFlow > 0.0:
                 self.conc_O2 = O2Artys.conc_O2 - ( self.O2Use / self.BloodFlow )
@@ -18244,10 +18754,10 @@ class OtherTissue_Flow:
 
             HgbTissue.conc_O2 = self.conc_O2
             HgbTissue.O2ToPO2_func()
-            self.PO2End = HgbTissue.pO2
+            PO2End = HgbTissue.pO2
 
-            return self.PO2End
-        self.PO2 = impliciteq( self.PO2End, implicitfunc, 45.0, 0.45)
+            return PO2End
+        self.PO2 = impliciteq( PO2implicitfunc, self.PO2, 0.45)
         self.PlasmaFlow = self.BloodFlow * BloodVol.PVCrit
 
 class OtherTissue_Structure:
@@ -18281,6 +18791,8 @@ class OtherTissue_Structure:
         self.TemperatureEffect = self.TemperatureFactor * self.TemperatureMaximum
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.FuelEffect + self.TemperatureEffect
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+
 
 class IVDrip:
     def __init__(self):
@@ -18324,6 +18836,8 @@ class IVDrip:
 
     def Dervs_func(self):
         self.H2OChange = self.H2ORate
+        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O)
+
 
     def Reset_func(self):
         self.TotalH2O = 0.0
@@ -19467,6 +19981,7 @@ class Start_Electrolytes:
         Start_ExtracellularSulphate.Calc_func()
 
 
+System = System()
 Structure = Structure()
 ADHPump = ADHPump()
 ADHPool = ADHPool()
@@ -20397,3 +20912,11 @@ Start_ExtracellularSulphate = Start_ExtracellularSulphate()
 Start_ExtracellularChloride = Start_ExtracellularChloride()
 Start_CellularPotassium = Start_CellularPotassium()
 Start_Electrolytes = Start_Electrolytes()
+def step():
+    Structure.Context_func()
+    Structure.Parms_func()
+    Structure.Dervs_func()
+    Structure.Wrapup_func()
+    System.X += System.Dx
+    for timer in timervars:
+        timer.count()
