@@ -8,9 +8,17 @@ The HumMod model of physiology is the result of collaboration between many physi
 
 # run from command line:
 from the PyHumMod directory run:
-> python model.py
+> python example_default.py
 
 # the structure
 HumMod consists of hundreds of files representing different components of human phsyiology. In pyHumMod each file is represented by a class. All classes are defined in a single file: src/hummod.py
 
 Functions that solve differential equations or define custom subic splines are in src/special_functions.py
+
+# convert to python afresh
+Included in this respository is the script I used to convert the standard HumMod library into python.
+
+To do this afresh, change the source directory in HumMod_to_python_converter.py to point to a standard HumMod repository
+
+Then, from the PyHumMod directory run:
+> python example_default.py
