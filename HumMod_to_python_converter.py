@@ -133,7 +133,9 @@ def char_repair(string):
     # square brackets without spaces inside them are used in variable names to indicate concentration
     string = re.sub(r'\[(\S+)\]', r'conc_\g<1>', string)
     # some variable names have a question mark on the end
-    string = re.sub(r'(\S+)\?', r'query_\g<1>', string)
+    if re.search(r'(?<=\.|\s)(\w+?)\?', string):
+        print("@@@", re.search('(?<=\.|\s)(\w+?)\?', string))
+    string = re.sub(r'(?<=\.|\s)(\w+?)\?', r'query_\g<1>', string)
     # some variable names have an equals sign in them
     string = re.sub(r'(\S+)=(\S+)', r'\g<1>_equals_\g<2>', string)
     # some variable names have ampersand in them
@@ -1211,6 +1213,11 @@ class Timer:
 
                         if "{0} = {0}()\n".format(class_name) not in class_instantiations:
                             class_instantiations.append("{0} = {0}()\n".format(class_name))
+                        
+                        #NOTE: afterthought hack - this should have been done earlier:
+                        new_file_contents = new_file_contents.replace('" self.UP "', '"UP"')
+                        new_file_contents = new_file_contents.replace('" self.DOWN "', '"DOWN"')
+                        new_file_contents = new_file_contents.replace('" self.OFF "', '"OFF"')
 
                         print("class " + class_name + " is: =======\n" + new_file_contents + "=========\n")
 
@@ -1238,6 +1245,7 @@ class Timer:
         timer.count()""")
     
 source_dir = '/path/to/hummod-respository/'
+source_dir = '/Users/henryhoward/Downloads/hummod-standalone-master/'
 destination_dir = './src/'
 
 convert_directory(source_dir, ['Structure', 'Context'], destination_dir)
@@ -1251,4 +1259,6 @@ with open("special_functions.py", "r") as func_f1:
 """
 TODO:
 whitenoise in phaeochromocytoma
+
+fix ROUND
 """

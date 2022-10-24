@@ -3775,7 +3775,7 @@ class DailyPlannerControl:
         if self.MinutesIntoDay:
             self.Status = 1
             self.WaitingTimer.val = 1440.0 - self.MinutesIntoDay
-            self.WaitingTimer.state = " self.DOWN "
+            self.WaitingTimer.state = "DOWN"
         else:
             self.Start_func()
 
@@ -3799,11 +3799,11 @@ class DailyPlannerControl:
 
     def Stop_func(self):
         self.Status = 0
-        self.WaitingTimer.state = " self.OFF "
-        self.HourTimer.state = " self.OFF "
-        self.WorkTimer.state = " self.OFF "
-        self.AerobicsTimer.state = " self.OFF "
-        self.MealsTimer.state = " self.OFF "
+        self.WaitingTimer.state = "OFF"
+        self.HourTimer.state = "OFF"
+        self.WorkTimer.state = "OFF"
+        self.AerobicsTimer.state = "OFF"
+        self.MealsTimer.state = "OFF"
         Status.Activity = 3
         Status.Exertion = 0
         PostureControl.Request = PostureControl.LYING
@@ -3823,7 +3823,7 @@ class DailyPlannerControl:
         elif self.Task == 4:
             self.StartMeals_func()
         self.HourTimer.val = 60.0
-        self.HourTimer.state = " self.DOWN "
+        self.HourTimer.state = "DOWN"
 
     def GetTask_func(self):
         self.HoursIntoDay = self.ROUND ( ( System.X % 1440.0 ) / 60.0 )
@@ -3891,7 +3891,7 @@ class DailyPlannerControl:
 
     def StartWork_func(self):
         self.WorkTimer.val = self.WorkDuration
-        self.WorkTimer.state = " self.DOWN "
+        self.WorkTimer.state = "DOWN"
         Status.Activity = 1
         Status.Exertion = 1
         PostureControl.Request = PostureControl.STANDING
@@ -3903,7 +3903,7 @@ class DailyPlannerControl:
 
     def StartAerobics_func(self):
         self.AerobicsTimer.val = self.AerobicsDuration
-        self.AerobicsTimer.state = " self.DOWN "
+        self.AerobicsTimer.state = "DOWN"
         Status.Activity = 1
         Status.Exertion = 2
         PostureControl.Request = PostureControl.STANDING
@@ -3915,7 +3915,7 @@ class DailyPlannerControl:
 
     def StartMeals_func(self):
         self.MealsTimer.val = self.MealsDuration
-        self.MealsTimer.state = " self.DOWN "
+        self.MealsTimer.state = "DOWN"
         Status.Activity = 1
         Status.Exertion = 0
         PostureControl.Request = PostureControl.SITTING
@@ -4015,11 +4015,11 @@ class Heart_VFib:
     def Start_func(self):
         self.Is_Fibrillating = True
         self.ElapsedTime.val = 0.0
-        self.ElapsedTime.state = " self.UP "
+        self.ElapsedTime.state = "UP"
 
     def Stop_func(self):
         self.Is_Fibrillating = False
-        self.ElapsedTime.state = " self.OFF "
+        self.ElapsedTime.state = "OFF"
 
     def ResetElapsedTime_func(self):
         self.ElapsedTime.val = 0.0
@@ -4504,7 +4504,7 @@ class MidodrineDailyDose:
         self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        self.Timer = Timer(0.0, "OFF", System.Dx)
         timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
@@ -4517,11 +4517,11 @@ class MidodrineDailyDose:
         else:
             if self.TakeDaily:
                 self.Timer.val = 0.0
-                self.Timer.state = " self.UP "
+                self.Timer.state = "UP"
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                self.Timer.state = " self.OFF "
+                self.Timer.state = "OFF"
                 self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
@@ -4675,7 +4675,7 @@ class DigoxinDailyDose:
         self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        self.Timer = Timer(0.0, "OFF", System.Dx)
         timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
@@ -4688,11 +4688,11 @@ class DigoxinDailyDose:
         else:
             if self.TakeDaily:
                 self.Timer.val = 0.0
-                self.Timer.state = " self.UP "
+                self.Timer.state = "UP"
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                self.Timer.state = " self.OFF "
+                self.Timer.state = "OFF"
                 self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
@@ -4860,7 +4860,7 @@ class ThiazideDailyDose:
         self.TimeNextDose = 0
         self.TotalDoses = 0.0
         self.CumulativeDose = 0.0
-        self.Timer = Timer(0.0, " self.OFF ", System.Dx)
+        self.Timer = Timer(0.0, "OFF", System.Dx)
         timervars.append(self.Timer)
         self.IntervalGoal = None
         self.Interval = None
@@ -4873,11 +4873,11 @@ class ThiazideDailyDose:
         else:
             if self.TakeDaily:
                 self.Timer.val = 0.0
-                self.Timer.state = " self.UP "
+                self.Timer.state = "UP"
                 self.Interval = self.PREPTIME
                 self.TimeNextDose = System.X + self.PREPTIME
             else:
-                self.Timer.state = " self.OFF "
+                self.Timer.state = "OFF"
                 self.TimeNextDose = 0
             self.LastTakeDaily = self.TakeDaily
 
@@ -11905,20 +11905,20 @@ class DialyzerActivity:
     def StartSchedule_func(self):
         self.query_Scheduled = True
         self.IntervalTimer.val = 1440.0 * DialyzerControl.Interval_Days
-        self.IntervalTimer.state = " self.DOWN "
+        self.IntervalTimer.state = "DOWN"
 
     def StopSchedule_func(self):
         self.query_Scheduled = False
-        self.IntervalTimer.state = " self.OFF "
+        self.IntervalTimer.state = "OFF"
 
     def StartDuration_func(self):
         self.query_Active = True
         self.DurationTimer.val = 60.0 * DialyzerControl.Duration_Hrs
-        self.DurationTimer.state = " self.DOWN "
+        self.DurationTimer.state = "DOWN"
 
     def StopDuration_func(self):
         self.query_Active = False
-        self.DurationTimer.state = " self.OFF "
+        self.DurationTimer.state = "OFF"
 
 class DialysateComposition:
     def __init__(self):
@@ -13092,10 +13092,10 @@ class Exercise_Treadmill:
 
     def Dervs_func(self):
         if Status.Exertion == 4:
-            self.ElapsedTime.state = " self.UP "
+            self.ElapsedTime.state = "UP"
             self.Velocity = self.Speed_FPM
         else:
-            self.ElapsedTime.state = " self.OFF "
+            self.ElapsedTime.state = "OFF"
             self.Velocity = 0.0
         self.Distance_Miles = self.DistanceTraveled_Feet / 5280.0
         self.Distance_kM = 1.609 * self.Distance_Miles
@@ -13133,9 +13133,9 @@ class Exercise_Bike:
         self.Efficiency = 0.01 * self.Efficiency_percent
         self.TotalWatts = self.Power_W / self.Efficiency
         if Status.Exertion == 3:
-            self.ElapsedTime.state = " self.UP "
+            self.ElapsedTime.state = "UP"
         else:
-            self.ElapsedTime.state = " self.OFF "
+            self.ElapsedTime.state = "OFF"
 
     def ResetElapsedTime_func(self):
         self.ElapsedTime.val = 0.0
@@ -13333,14 +13333,14 @@ class Pheochromocytoma:
         self.FractSec = 0.0
         self.Period = self.Noise * self.MAXPAUSE
         self.Timer.val = 0.0
-        self.Timer.state = " self.UP "
+        self.Timer.state = "UP"
 
     def TurnOn_func(self):
         self.InEpisode = True
         self.FractSec = self.FRACTSEC
         self.Period = self.Noise * self.MAXEPISODE
         self.Timer.val = 0.0
-        self.Timer.state = " self.UP "
+        self.Timer.state = "UP"
 
 class NEPool:
     def __init__(self):
@@ -15041,7 +15041,7 @@ class Ovaries_CorpusLuteum:
 
 
     def Wrapup_func(self):
-        if ( query_Ovaries.Cycling ) and ( Ovaries.Phase == Ovaries.IS_LUTEAL ) and ( self.Mass < 100.0 ):
+        if ( Ovaries.query_Cycling ) and ( Ovaries.Phase == Ovaries.IS_LUTEAL ) and ( self.Mass < 100.0 ):
             Ovaries.Phase = Ovaries.IS_IDLE
         else:
             pass
@@ -15064,7 +15064,7 @@ class Ovaries_Follicle:
 
 
     def Wrapup_func(self):
-        if ( query_Ovaries.Cycling ) and ( Ovaries.Phase != Ovaries.IS_FOLLICULAR ) and ( ( self.Mass + Ovaries_CorpusLuteum.Mass ) <= 400.0 ) and ( FSH_Circulating.conc_Conc_IUperL > 3.0 ):
+        if ( Ovaries.query_Cycling ) and ( Ovaries.Phase != Ovaries.IS_FOLLICULAR ) and ( ( self.Mass + Ovaries_CorpusLuteum.Mass ) <= 400.0 ) and ( FSH_Circulating.conc_Conc_IUperL > 3.0 ):
             Ovaries.Phase = Ovaries.IS_FOLLICULAR
             self.Mass = 65
         else:
