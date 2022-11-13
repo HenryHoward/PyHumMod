@@ -1,7 +1,7 @@
 from src import hummod
 
 #set params here:
-hummod.Altitude.Feet = 10000
+hummod.Altitude.Feet = 100000
 
 for n in range(0, 1000):
     hummod.step()

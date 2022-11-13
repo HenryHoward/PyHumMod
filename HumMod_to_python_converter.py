@@ -1112,7 +1112,7 @@ def parse_xml_element(element, memory={}):
         # all <ontimedout> els have a single <call> after <name>
         called_func = format_names(
             find_child_els_by_name(element, "call")[-1][1])
-        code += "{0}if self.{1} == 0:\n{0}    {2}()\n".format(
+        code += "{0}if self.{1} == 0:\n{0}    {2}_func()\n".format(
             "    "*depth, name, called_func)
         children = []
 
@@ -1245,7 +1245,6 @@ class Timer:
         timer.count()""")
     
 source_dir = '/path/to/hummod-respository/'
-source_dir = '/Users/henryhoward/Downloads/hummod-standalone-master/'
 destination_dir = './src/'
 
 convert_directory(source_dir, ['Structure', 'Context'], destination_dir)

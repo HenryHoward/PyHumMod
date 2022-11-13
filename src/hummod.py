@@ -3781,17 +3781,17 @@ class DailyPlannerControl:
 
     def Waiting_func(self):
         if self.WaitingTimer == 0:
-            self.Start()
+            self.Start_func()
 
     def Active_func(self):
         if self.HourTimer == 0:
-            self.NewTask()
+            self.NewTask_func()
         if self.WorkTimer == 0:
-            self.Resting()
+            self.Resting_func()
         if self.AerobicsTimer == 0:
-            self.Resting()
+            self.Resting_func()
         if self.MealsTimer == 0:
-            self.Resting()
+            self.Resting_func()
 
     def Start_func(self):
         self.Status = 2
@@ -11885,10 +11885,10 @@ class DialyzerActivity:
     def Wrapup_func(self):
         if self.query_Scheduled:
             if self.IntervalTimer == 0:
-                self.Start()
+                self.Start_func()
             if self.query_Active:
                 if self.DurationTimer == 0:
-                    self.StopDuration()
+                    self.StopDuration_func()
             else:
                 pass
         else:
