@@ -1,11 +1,40 @@
-from os import linesep
 import re
 import copy
+import json
 
-#TODO: support splines
-# support for "whitenoise"
+# This script takes hummod.py and outputs a causal network in the form of nodes and edges
 
-filename = "/Users/henryhoward/PyHumModInitialWork/src/hummod.py"
+#TODO ========
+# ignore useless parts:
+To_ignore = [
+    "Symptoms",
+    "DailyPlannerControl",
+    "ThiazideDailyDose",
+    "MidodrineDailyDose",
+    "DigoxinDailyDose",
+    "DialyzerActivity.Wrapup_func",
+    "Exercise_Bike",
+    "Exercise_Treadmill",
+    "Exercise_Motivation",
+    "Exercise_Metabolism",
+    "Exercise_Control",
+    "Pheochromocytoma.Wrapup_func",
+    "Heart_VFib",
+    "CPR_Heart",
+    "PeripheralResistance" #PeripheralResistance is a useful clinical metric but it is not defined in the correct causal direction in HumMod
+    "AirSupply_GasTanks",
+]
+
+#DialyzerActivity and the exercise things have some bits that are useful, can add this in later
+
+#what to do about "whitenoise" (only implemented in phaeochromocytoma) - replace with probability distributions?
+
+#get rid of "switch", "clamp switch" etc.
+
+#=========
+
+
+filename = "src/hummod.py"
 
 id = 0
 
@@ -15,6 +44,8 @@ data = {
 }
 
 """
+data is of the form:
+
 {
     "nodes":{
         "FebrileConvulsions": {"formula":[
@@ -23,13 +54,15 @@ data = {
                 ]
             }
         },
+        ...
     ],
     "edges":[
         {
             "from":"42cd723b-ec9d-440a-841b-1875525cfdf7",
             "to":"FebrileConvulsions",
             "id":"b08e1424-f505-4741-8ff9-d32c60bf46f0"
-        }
+        },
+        ...
     ]
 }
 """        
@@ -158,7 +191,6 @@ def extract_implicit_blocks(function_contents):
         implicit_block_regex = r'(?:\n|^)(( *)def .*?implicitfunc.*?\n(\n|.)*?{}.*?impliciteq.*)\n'.format(indent)
         implicit_block_match = re.match(implicit_block_regex, match_start_onwards)
         implicit_block_str = implicit_block_match.group(1)
-        print("&&&extracted string:>>{}<<".format(implicit_block_str))
         implicit_blocks.append(implicit_block_str)
         function_contents = function_contents.replace(implicit_block_str, "#implicit block")
         implicit_match = re.search(r'(?:\n|^)( *)def .*?implicitfunc.*?\n', function_contents)
@@ -172,15 +204,10 @@ def find_splines(file_contents):
         class_contents = class_match
         class_name_match = re.search(r'(\w*):', class_contents)
         class_name = class_name_match.group(1)
-        print("====")
-        print(class_contents)
-        print(class_name)
         spline_matches = re.findall(r'def (\w.*curve).*\n.*cubic_hermite_spline\(x, (.*)\)', class_contents)
-        print("spline matches:", spline_matches)
         for match in spline_matches:
             spline_name = class_name + "." + match[0]
             spline_params = match[1]
-            print("~~~spline:", spline_name, spline_params)
             all_splines.append([spline_name, spline_params])
     return all_splines
 
@@ -219,23 +246,71 @@ def inverse_condition(condition_string):
     return condition_string
 
 def process_implicit_block(class_name, data, implicit_blocks, conditions):
-    print("processing implicit blocks {} with conditions:".format(implicit_blocks), conditions)
     implicit_block = implicit_blocks.pop(0)
-    print("!!! implicit block>>>{}<<<".format(implicit_block))
-    vars = re.findall(r'[a-zA-Z_]+\.[a-zA-Z_]+\s', implicit_block)
-    #for var in vars:
+
     matches = re.search(r'((.|\n)*)\n *self.(\w*) = impliciteq', implicit_block)
     implicit_eq = matches.group(1)
     dependent_var = class_name + "." + matches.group(3)
-    print(matches)
-    print("dependent var:", dependent_var)
-    print("implicit_eq:", implicit_eq)
 
-    #for every 
+    #some implicit blocks contain conditional blocks
+    implicit_block, conditional_blocks = extract_conditional_blocks(implicit_block)
 
-    #set_node()
+    #find the input, replace with the dependent variable name
+    input_name = re.search(r'implicitfunc\((.*)\)', implicit_eq).group(1)
+    implicit_eq = re.sub(r' {} '.format(input_name), dependent_var ,implicit_eq)
+
+    #replace all "self."" with the class name
+    implicit_block = re.sub(r'\bself.', class_name+".", implicit_block)
+
+    implicit_block_lines = implicit_block.split('\n')
+
+    expressions = []
+
+    for line in implicit_block_lines[1:-4]+implicit_block_lines[-1:]: #ignore first line
+        if re.match(r'#conditional block', line):
+            raw_expressions = process_conditional_block(class_name, conditional_blocks.pop(0), data, implicit_blocks, conditions)
+        elif re.match(r'^ *.*\(\)', line):
+            raw_expressions = process_function_call_line(class_name, line, file_contents, data, conditions)
+        elif re.match(r'^ *.*=.*$', line):
+            raw_expressions = [process_expression(class_name, line, data, conditions)]
+        else:
+            raise Exception("conditional case contains unprocessable line:", line)
+
+        #need to replace formulae with the full implicit eq
+        processed_expressions = []
+        for i, expression in enumerate(raw_expressions):
+            processed_expressions.append([expression[0], []])
+            for case in expression[1]:
+                case_conditions = case[0] #ignore these
+                case_right_side = "start_implicit_block" + implicit_block + "end_implicit_block"
+                processed_expressions[i][1].append([conditions, case_right_side])
+        
+        expressions += processed_expressions
+
+
+    return expressions
 
 def process_conditional_block(class_name, conditional_block, data, implicit_blocks, conditions=[]):
+    """
+    takes a conditional_block, returns all expressions within it and their conditions
+
+    returns
+        list of the form:
+        [
+            ['DigoxinPool.Change', [
+                    ['init', None],
+                    [[], ' DigoxinPool.Gain - DigoxinPool.Loss']
+                ]   
+            ]
+            ['TGF_Vascular.Steady_State', [
+                    ['init', None],
+                    [['TGF_Vascular.Clamp == True'], ' TGF_Vascular.Level'],
+                    [['TGF_Vascular.Clamp == False', ''],' TGF_Vascular.BasicSignal * TGF_Vascular.NaEffect * TGF_Vascular.A2Effect * TGF_Vascular.ANPEffect * TGF_Vascular.FurosemideEffect']
+                ]
+            ]
+        ]
+    """
+    expressions = []
     local_conditions = copy.copy(conditions) #need to create a local copy of the initial conditions
     indent_match = re.match(r'\W*', conditional_block)
     indent = indent_match.group()
@@ -259,17 +334,18 @@ def process_conditional_block(class_name, conditional_block, data, implicit_bloc
             elif case_line.strip() == "pass":
                 pass
             elif re.match(r'#conditional block', case_line):
-                process_conditional_block(class_name, conditional_subblocks.pop(0), data, implicit_blocks, local_conditions+[condition])
+                expressions += process_conditional_block(class_name, conditional_subblocks.pop(0), data, implicit_blocks, local_conditions+[condition])
             elif re.match(r'#implicit block', case_line):
-                process_implicit_block(class_name, data, implicit_blocks, local_conditions+[condition])
+                expressions += process_implicit_block(class_name, data, implicit_blocks, local_conditions+[condition])
             elif re.match(r'^ *.*\(\)', case_line):
-                process_function_call_line(class_name, case_line, file_contents, data, local_conditions+[condition])
+                expressions += process_function_call_line(class_name, case_line, file_contents, data, local_conditions+[condition])
             elif re.match(r'^ *.*=.*$', case_line):
-                process_expression(class_name, case_line, data, local_conditions+[condition])
+                expressions.append(process_expression(class_name, case_line, data, local_conditions+[condition]))
             else:
                 raise Exception("conditional case contains unprocessable line:", case_line)
         if condition not in ["True", "False"]:
             local_conditions += [inverse_condition(condition)]
+    return expressions
 
 def process_expression(class_name, line, data, conditions):
     left_var_match = re.search(r'^ *(\w*\.(\w|.)*?) *=', line)
@@ -278,41 +354,65 @@ def process_expression(class_name, line, data, conditions):
     left_var_match.end()
     right_side = line[left_var_match.end():]
     right_side = re.sub(r'(^| )self\.', r'\g<1>{}.'.format(class_name), right_side)
-    if left_var not in data["nodes"]:
-        set_node(left_var, [["init", None]])
-    set_node(left_var, data["nodes"][left_var]["formula"] + [[conditions, right_side]])
-    right_vars = re.findall(r'(\w*[A-Za-z]+\w*\.\w*[A-Za-z]+\w*)(?: |$|\n)', right_side)
-    for right_var in right_vars:
-        if right_var not in data["nodes"].keys():
-            set_node(right_var, [["init", None]])
+    expression = [left_var, [[conditions, right_side]]]
+    return expression
 
-    #process_expression(line, class_name)
-    #if the left hand side is a node: we will be creating new edges now
-    #if the left hand side is not a node, it may be used to create an edge later
-    #for all variables on the the right:
-    #   if variable represents a node:
+def create_nodes_from_expression(expression, data):
+    #create entries in the data dictionary for the variables mentioned in an expression
+
+    #create nodes for the appropriate variables in the conditions
+    for case in expression[1]:
+        condition = str(case[0])
+        condition_vars = re.findall(r'(\w*[A-Za-z]+\w*\.\w*[A-Za-z]+\w*)(?: |$|\n)', condition)
+        for condition_var in condition_vars:
+            if condition_var not in data["nodes"].keys():
+                set_node(condition_var, [["init", None]])
+
+        #create nodes for the variables on the right side (accounting for implicit blocks)
+        right_side = case[1]
+        implicit_block_match = re.match(r'start_implicit_block<((\n|.)*?)>end_implicit_block', right_side)
+        if not implicit_block_match:
+            #create nodes for the appropriate variables on the right side
+            right_vars = re.findall(r'(\w*[A-Za-z]+\w*\.\w*[A-Za-z]+\w*)(?: |$|\n)', right_side)
+            for right_var in right_vars:
+                if right_var not in data["nodes"].keys():
+                    set_node(right_var, [["init", None]])
+
+    #create a node for the variable on the left side
+    left_var = expression[0]
+    if left_var not in data["nodes"].keys():
+        set_node(left_var, [["init", None], [condition, right_side]])
+    else:
+        left_var_pre = data["nodes"][left_var]["formula"]
+        set_node(left_var, left_var_pre + [[condition, right_side]])
+
+blah=['LungO2.Uptake', [], [['Breathing.AlveolarVentilation_STPD > 0.0'], 'start_implicit_block        def Uptakeimplicitfunc(Uptake):\n            LungO2.conc_Alveolar = Bronchi.conc_O2 - ( Uptake / Breathing.AlveolarVentilation_STPD )\n            LungO2.PAlveolar = LungO2.conc_Alveolar * Barometer.Pressure\n            LungO2.MembraneGradient = Uptake / PulmonaryMembrane.Permeability\n            LungO2.PCapy = LungO2.PAlveolar - LungO2.MembraneGradient\n            HgbLung.pO2 = LungO2.PCapy\n            HgbLung.PO2ToO2_func()\n            LungO2.conc_Capy = HgbLung.conc_O2\n            EndUptake = LungBloodFlow.AlveolarVentilated * ( LungO2.conc_Capy - LungArtyO2.conc_O2 )\n\n            return EndUptake\n        LungO2.Uptake = impliciteq( Uptakeimplicitfunc, LungO2.Uptake, 2.5)end_implicit_block']]
+
 
 def edges_from_nodes(data):
     #processes a formula for a node, extracts out all variable names and adds edges from these to the node
     for node in list(data["nodes"]):
         node_formula = data["nodes"][node]["formula"]
-        vars = re.findall(r'[a-zA-Z_]+\.[a-zA-Z_]+\s', str(node_formula))
+        formula_string = str(node_formula)
+        vars = re.findall(r'\b\w*[a-zA-Z]+\w*\.\w*[a-zA-Z]+\w*(?= |\'|"|$)', formula_string)
+        print("formula:", node_formula)
+        print("vars:", vars)
+
         vars = list(set(vars)) #remove duplicates
         for var in vars:
+            print("    var:", var)
             add_edge(data, var, node)
 
 def process_function_call_line(class_name, line, file_contents, data, conditions):
-    print("processing function call line with conditions:>->{}<-<".format(conditions))
     func_call_match = re.match(r'^ *(.*)\.(.*)\(\)', line)
     func_class = func_call_match.group(1)
     if func_class == "self":
         func_class = class_name
     func_name = func_call_match.group(2)
-    process_function(func_class, func_name, file_contents, data, conditions=conditions)
+    expressions = process_function(func_class, func_name, file_contents, data, conditions=conditions)
+    return expressions
 
 def process_function(class_name, function_name, file_contents, data, conditions=[]):
-
-    print('processing func: {}.{}'.format(class_name, function_name))
 
     function_contents = get_function(class_name, function_name, file_contents)
 
@@ -321,6 +421,8 @@ def process_function(class_name, function_name, file_contents, data, conditions=
     function_contents, conditional_blocks = extract_conditional_blocks(function_contents)
 
     lines = function_contents.split("\n")
+
+    expressions = []
     
     for line in lines[1:]:
 
@@ -330,60 +432,43 @@ def process_function(class_name, function_name, file_contents, data, conditions=
 
         #simple expression
         elif re.match(r'^ *.*=.*$', line):
-            process_expression(class_name, line, data, conditions=conditions)
+            expressions.append(process_expression(class_name, line, data, conditions=conditions))
 
         #function call
         elif re.match(r'^ *.*\(\)', line):
-            process_function_call_line(class_name, line, file_contents, data, conditions=conditions)
+            function_call_line_output = process_function_call_line(class_name, line, file_contents, data, conditions=conditions)
+            expressions += function_call_line_output
 
         #conditional block
         elif re.match(r'#conditional block', line):
-            process_conditional_block(class_name, conditional_blocks.pop(0), data, implicit_blocks, conditions=conditions)
+            expressions += process_conditional_block(class_name, conditional_blocks.pop(0), data, implicit_blocks, conditions=conditions)
 
         #implicit block
         elif re.match(r'#implicit block', line):
-            process_implicit_block(class_name, data, implicit_blocks, conditions)
+            expressions += process_implicit_block(class_name, data, implicit_blocks, conditions)
 
         else:
             print("###orphan line:", line)
+        
+    return(expressions)
 
 with open(filename, "r") as file:
     file_contents = file.read()
     all_splines = find_splines(file_contents)
     init_nodes(file_contents, data)
-    process_function("Structure", "Context_func", file_contents, data)
-    process_function("Structure", "Parms_func", file_contents, data)
-    process_function("Structure", "Dervs_func", file_contents, data)
-    process_function("Structure", "Wrapup_func", file_contents, data)
+    expressions = []
+    expressions += process_function("Structure", "Context_func", file_contents, data)
+    expressions += process_function("Structure", "Parms_func", file_contents, data)
+    expressions += process_function("Structure", "Dervs_func", file_contents, data)
+    expressions += process_function("Structure", "Wrapup_func", file_contents, data)
+    for expression in expressions:
+        create_nodes_from_expression(expression, data)
     edges_from_nodes(data)
-    print(data["edges"][-100:])
-    for n in [[key, data["nodes"][key]] for key in list(data["nodes"].keys())[-100:]]:
-        print(n)
-    print(all_splines)
+
+    #print(all_splines)
+
     #all_classes = get_all_classes(file_contents)
 
-To_ignore = [
-    "Symptoms",
-    "DailyPlannerControl",
-    "ThiazideDailyDose",
-    "MidodrineDailyDose",
-    "DigoxinDailyDose",
-    "DialyzerActivity.Wrapup_func",
-    "Exercise_Bike",
-    "Exercise_Treadmill",
-    "Exercise_Motivation",
-    "Exercise_Metabolism",
-    "Exercise_Control",
-    "Pheochromocytoma.Wrapup_func",
-    "Heart_VFib",
-    "PeripheralResistance",
-    "CPR_Heart"
-]
-
-#DialyzerActivity and the exercise things have some bits that are useful, can add this in later
-
-#PeripheralResistance is a useful metric but it is not defined in the correct causal direction in HumMod
-
-#NOTE: get rid of "switch","clamp switch"
-
-#TODO:
+with open("data_dump.txt", "w") as file:
+    nodes = [{"id": key, "label":key} for key in data["nodes"].keys()]
+    file.write(json.dumps(nodes) + "\n\n\n\n\n" + json.dumps(data["edges"]))
