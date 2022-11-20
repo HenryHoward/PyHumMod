@@ -3,7 +3,8 @@ This is a python implementation of the [HumMod](http://hummod.org/) model of hum
 
 The HumMod model of physiology is the result of collaboration between many physiologists over many decades. It consists of over 10,000 variables and the equations that relate them. Running the model means setting a lot of parameters then stepping forward in short time steps and recalculating the values of the body's parameters at each timestep.
 
-![PyHumMod as a causal network](https://github.com//HenryHoward/pyHumMod/blob/main/PyHumMod.png?raw=true)
+
+<img src="https://github.com//HenryHoward/pyHumMod/blob/main/PyHumMod.png?raw=true" width="100">
 
 ## Required python packages:
 - scipy
