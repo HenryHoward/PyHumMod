@@ -5,14 +5,15 @@ import numpy as np
 def backwardeuler(f1, f2, delta_t, y0):
     '''
     uses the right handed rectangle method to iterate the next value in a differential equation
-    f1 and f2 are all that is needed to define the differential equation in HUMMOD. the differential equation is: y = integral((f1-f2)*y)
+    f1 and f2 are all that is needed to define the differential equation in HUMMOD. the differential equation is: y = integral(f1-f2*y)
 
-    causes an error when delta_t*(f1-f2) = 1
-
-    returns a list of subsequent y values
+    returns:
+    the next y value
     '''
+
+    #NOTE: this is almost certainly an incorrect, nonsense implementation
     
-    y1 = y0/(1-delta_t*(f1-f2))
+    y1 = y0/(1-delta_t*(f1-f2)) #???
     return y1
 
 def diffeq(dydx, delta_t, y0):

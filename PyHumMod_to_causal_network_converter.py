@@ -23,6 +23,8 @@ To_ignore = [
     "CPR_Heart",
     "PeripheralResistance" #PeripheralResistance is a useful clinical metric but it is not defined in the correct causal direction in HumMod
     "AirSupply_GasTanks",
+    "Heart_ECG",
+    "Heart_Defibrillator"
 ]
 
 #DialyzerActivity and the exercise things have some bits that are useful, can add this in later
@@ -30,6 +32,30 @@ To_ignore = [
 #what to do about "whitenoise" (only implemented in phaeochromocytoma) - replace with probability distributions?
 
 #get rid of "switch", "clamp switch" etc.
+
+#remove variables that tend to be reused - replace with the underlying factors eg. hgbprops
+
+
+#identify cycles and their input variables
+
+#for each cycle, create a monte carlo matrix with one dimension for each input variable
+
+'''for each variable that is outside normal range: track back to find explanations:
+    at each node, look at what the input values have to (at least) be to give that value, create a separate hypothesis for each possibility above a certain cutoff
+
+if node D depends on nodes A, B, C:
+    hypotheses are:
+        A abnormal
+        B abnormal
+        C abnormal
+        A,B abnormal
+        A,C abnormal
+        B,C abnormal
+        A,B,C abnormal
+        assume that A,B,C being abnormal is unlikely OR find total probability of all of A,B,C being abnormal and if it's below a cutoff exlcude it
+'''
+
+#collapse graphs of constants into single constants eg. K = 1/tau = something else
 
 #=========
 
@@ -372,11 +398,22 @@ def create_nodes_from_expression(expression, data):
         right_side = case[1]
         implicit_block_match = re.match(r'start_implicit_block<((\n|.)*?)>end_implicit_block', right_side)
         if not implicit_block_match:
-            #create nodes for the appropriate variables on the right side
-            right_vars = re.findall(r'(\w*[A-Za-z]+\w*\.\w*[A-Za-z]+\w*)(?: |$|\n)', right_side)
-            for right_var in right_vars:
-                if right_var not in data["nodes"].keys():
-                    set_node(right_var, [["init", None]])
+            #consider differential equations
+            diffeq_match = re.match(r' *(diffeq|backwardeuler)\((.*?), (.*?), (.*?)\)', right_side)
+            delay_match = re.match(r' *(delay|stabledelay)\((.*?), (.*?), (.*?), (.*?)\)', right_side)
+            if diffeq_match:
+                #becomes "integral_of( X )"
+                right_side = "integral_of({} )".format(diffeq_match.group(2))
+            #consider delay
+            elif delay_match:
+                #right side becomes "delay( delay_factor, X )"
+                right_side = "delay_of({}, {} )".format(delay_match.group(2), delay_match.group(3))
+            else:
+                #create nodes for the appropriate variables on the right side
+                right_vars = re.findall(r'(\w*[A-Za-z]+\w*\.\w*[A-Za-z]+\w*)(?: |$|\n)', right_side)
+                for right_var in right_vars:
+                    if right_var not in data["nodes"].keys():
+                        set_node(right_var, [["init", None]])
 
     #create a node for the variable on the left side
     left_var = expression[0]
@@ -388,6 +425,24 @@ def create_nodes_from_expression(expression, data):
 
 blah=['LungO2.Uptake', [], [['Breathing.AlveolarVentilation_STPD > 0.0'], 'start_implicit_block        def Uptakeimplicitfunc(Uptake):\n            LungO2.conc_Alveolar = Bronchi.conc_O2 - ( Uptake / Breathing.AlveolarVentilation_STPD )\n            LungO2.PAlveolar = LungO2.conc_Alveolar * Barometer.Pressure\n            LungO2.MembraneGradient = Uptake / PulmonaryMembrane.Permeability\n            LungO2.PCapy = LungO2.PAlveolar - LungO2.MembraneGradient\n            HgbLung.pO2 = LungO2.PCapy\n            HgbLung.PO2ToO2_func()\n            LungO2.conc_Capy = HgbLung.conc_O2\n            EndUptake = LungBloodFlow.AlveolarVentilated * ( LungO2.conc_Capy - LungArtyO2.conc_O2 )\n\n            return EndUptake\n        LungO2.Uptake = impliciteq( Uptakeimplicitfunc, LungO2.Uptake, 2.5)end_implicit_block']]
 
+def find_dummy_nodes(data):
+    """
+    some nodes like HgbProps.pO2 and HgbProps.conc_O2, are overwritten and reused many times
+
+    edges should bypass these nodes, otherwise false connections will be implied
+
+    the true way to do this would be to look at when all values have been reset
+
+    when a node is overwritten, there will be a repeat of conditions: create a list of all conditions. If there are repeats, flag this
+    """
+    dummy_nodes = []
+    ids = data["nodes"].keys()
+    for id in ids:
+        formula = data["nodes"][id]["formula"]
+        conditions = [case[0] for case in formula]
+        if len(conditions) != len(set(conditions)):
+            dummy_nodes.append(id)
+    return dummy_nodes
 
 def edges_from_nodes(data):
     #processes a formula for a node, extracts out all variable names and adds edges from these to the node
@@ -413,6 +468,7 @@ def process_function_call_line(class_name, line, file_contents, data, conditions
     return expressions
 
 def process_function(class_name, function_name, file_contents, data, conditions=[]):
+    print("function:{}.{}".format(class_name, function_name))
 
     function_contents = get_function(class_name, function_name, file_contents)
 
@@ -425,6 +481,9 @@ def process_function(class_name, function_name, file_contents, data, conditions=
     expressions = []
     
     for line in lines[1:]:
+
+        if class_name == "LeftHeartPumping_Systole":
+            print("&&&>>{}<<".format(line))
 
         #empty line
         if line.strip() == "":
@@ -464,11 +523,12 @@ with open(filename, "r") as file:
     for expression in expressions:
         create_nodes_from_expression(expression, data)
     edges_from_nodes(data)
+    print("****", find_dummy_nodes(data))
 
     #print(all_splines)
 
     #all_classes = get_all_classes(file_contents)
 
 with open("data_dump.txt", "w") as file:
-    nodes = [{"id": key, "label":key} for key in data["nodes"].keys()]
+    nodes = [{"id": key, "label":key, "title":json.dumps(data["nodes"][key]["formula"]), "group": 1} for key in data["nodes"].keys()]
     file.write(json.dumps(nodes) + "\n\n\n\n\n" + json.dumps(data["edges"]))
