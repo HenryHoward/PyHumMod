@@ -665,8 +665,6 @@ def parse_block_subelements(subelements, memory):
 
     return code, memory
 
-lowest_error_lim = [100.1, None]
-
 def parse_xml_element(element, memory={}):
     '''
     takes an item from the xml tree and a memroy dict and converts the xml and everything sub to it to python code
@@ -826,11 +824,6 @@ def parse_xml_element(element, memory={}):
         error_limit = format_names(
             find_child_els_by_name(element, "errorlim")[-1][1])
 
-        # check if lowest errorlim
-        if float(error_limit) < lowest_error_lim[0]:
-            lowest_error_lim[0] = error_limit
-            lowest_error_lim[1] = name
-
         initial_vals = find_child_els_by_name(element, "initialval")
         if len(initial_vals) > 0:
             initial_val = process_expression(initial_vals[-1][1])
@@ -924,25 +917,41 @@ def parse_xml_element(element, memory={}):
             find_child_els_by_name(element, "inputname")[-1][1])
         k = format_names(find_child_els_by_name(
             element, "rateconstname")[-1][1])
-
+        
         # check errorlim
         errorlimels = (find_child_els_by_name(element, "errorlim"))
         if len(errorlimels) > 0:
             errorlim = float(errorlimels[-1][1])
-            if errorlim < lowest_error_lim[0]:
-                lowest_error_lim[0] = errorlim
-                lowest_error_lim[1] = name
+        else:
+            errorlim = None
 
         # if there is an initialval defined, declare it at the top of the document
         code += "{}self.{} = {}\n".format("    "*(depth-1), outputname, initialval)
-        delay_code = "self.{0} = delay( {1}, {2}, {0}, System.Dx)\n".format(outputname, k, inputname)
+        delay_code = "self.{0} = delay( {1}, {2}, {0}, System.Dx, {3})\n".format(outputname, k, inputname, errorlim)
         memory["special_func_imports"]["from special_functions import delay\n"] = True
-        memory["equations"]["delay"][inputname] = {"code": delay_code}
+        
+        if name == "delay":
+            memory["equations"]["delay"][inputname] = {
+                "code": delay_code,
+                "output name": outputname,
+                "k": k,
+                "inputname":inputname,
+                "errorlim": errorlim}
+        else:
+            memory["equations"]["stabledelay"][inputname] = {
+                "code": delay_code,
+                "output name": outputname,
+                "k": k,
+                "inputname":inputname,
+                "errorlim": errorlim}
         children = []
 
     elif name == "backwardeuler":
         integralname = format_names(
             find_child_els_by_name(element, "integralname")[-1][1])
+        
+        outp_name = format_names(
+            find_child_els_by_name(element, "name")[-1][1])
 
         # if there is an initialval, set integralname = initalval at the start of the document
         initialvalels = find_child_els_by_name(element, "initialval")
@@ -958,14 +967,17 @@ def parse_xml_element(element, memory={}):
         errorlimels = (find_child_els_by_name(element, "errorlim"))
         if len(errorlimels) > 0:
             errorlim = float(errorlimels[-1][1])
-            if errorlim < lowest_error_lim[0]:
-                lowest_error_lim[0] = errorlim
-                lowest_error_lim[1] = name
+        else:
+            errorlim = None
 
-        beuler_code = "self.{0} = backwardeuler( {1}, {2}, System.Dx, {0})\n".format(integralname, f1name, f2name)
+        beuler_code = "self.{0} = backwardeuler( {1}, {2}, System.Dx, {0}, {3})\n".format(integralname, f1name, f2name, errorlim)
         memory["special_func_imports"]["from special_functions import backwardeuler\n"] = True
         memory["equations"]["backwardeuler"][integralname] = {
-            "code": beuler_code}
+            "code": beuler_code,
+            "output name": outp_name,
+            "f1": f1name,
+            "f2": f2name,
+            "errorlim": errorlim}
         children = []
         # TODO the backward euler integral needs to update whenever its components update. Need to know where f1 and f2 are defined.
         # need to find where f1 and f2 are defined then place the code after this ??
@@ -973,16 +985,19 @@ def parse_xml_element(element, memory={}):
     elif name in ["diffeq", "stablediffeq"]:
         integralname = format_names(
             find_child_els_by_name(element, "integralname")[-1][1])
+        
         dervname = format_names(
             find_child_els_by_name(element, "dervname")[-1][1])
 
-        # check errorlim
+        outp_name = format_names(
+            find_child_els_by_name(element, "name")[-1][1])
+
+        # get errorlim
         errorlimels = (find_child_els_by_name(element, "errorlim"))
         if len(errorlimels) > 0:
             errorlim = float(errorlimels[-1][1])
-            if errorlim < lowest_error_lim[0]:
-                lowest_error_lim[0] = errorlim
-                lowest_error_lim[1] = name
+        else:
+            errorlim = None
 
         # if there is an initialval, set integralname = initalval at the start of the document
         initialvalels = find_child_els_by_name(element, "initialval")
@@ -990,9 +1005,20 @@ def parse_xml_element(element, memory={}):
             initialval = format_names(initialvalels[-1][1])
             code += "{}self.{} = {}\n".format("    " *
                                          (depth-1), integralname, initialval)
-        diffeq_code = "self.{0} = diffeq( {1}, System.Dx, {0})\n".format(integralname, dervname)
+        diffeq_code = "self.{0} = diffeq( {1}, System.Dx, {0}, {2})\n".format(integralname, dervname, errorlim)
         memory["special_func_imports"]["from special_functions import diffeq\n"] = True
-        memory["equations"]["diffeq"][dervname] = {"code": diffeq_code}
+        if name == "diffeq":
+            memory["equations"]["diffeq"][dervname] = {
+                "code": diffeq_code,
+                "output name": outp_name,
+                "dervname": dervname,
+                "errorlim": errorlim}
+        else:
+            memory["equations"]["stablediffeq"][dervname] = {
+                "code": diffeq_code,
+                "output name": outp_name,
+                "dervname": dervname,
+                "errorlim": errorlim}
         children = []
 
     elif name == "call":
@@ -1148,7 +1174,7 @@ parms = []
 def convert_directory(root_dir, source_dirs, destination_dir):
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
-    with open(destination_dir+"hummod.py", 'w') as f:
+    with open(destination_dir+"hummod_converted.py", 'w') as f:
         f.write("from .special_functions import *\n")
         f.write("import math\n")
         f.write("\ntimervars = []\n")
@@ -1178,13 +1204,14 @@ class Timer:
     def __gt__(self, other):
         return self.val>other\n\n""")
         class_instantiations = []
+        all_ODE_outputs = []
         for source_dir in source_dirs:
             for subdir, _dirs, files in os.walk(root_dir+source_dir):
                 for file in files:
                     if file[-4:] == ".DES":
                         xml_tree = create_xml_tree(subdir, file)
                         memory = {"equations": {"delay": {}, "impliciteq": {}, "diffeq": {
-                        }, "backwardeuler": {}, "stabledelay": {}}, "imports": {}, "special_func_imports": {}, "depth": 0, "curves": {}, "filename": file[:-4], "all_vars": [], "parms":[]}
+                        }, "backwardeuler": {}, "stabledelay": {}, "stablediffeq":{}}, "imports": {}, "special_func_imports": {}, "depth": 0, "curves": {}, "filename": file[:-4], "all_vars": [], "parms":[]}
                         new_file_contents, memory = parse_xml_element(xml_tree, memory)
                         # python_code = convert_DES_to_py(subdir, file)
 
@@ -1214,6 +1241,41 @@ class Timer:
                         if "{0} = {0}()\n".format(class_name) not in class_instantiations:
                             class_instantiations.append("{0} = {0}()\n".format(class_name))
                         
+                        #create a list of all ODEs, for optimising timesteps
+                        for diffeq_outp in memory['equations']['diffeq'].values():
+                            all_ODE_outputs.append({"type": "diffeq",
+                                "classname": class_name,
+                                "outputname": diffeq_outp["output name"],
+                                "dervname": diffeq_outp["dervname"],
+                                "errorlim": diffeq_outp["errorlim"]})
+                        for backwardeuler_outp in memory['equations']['backwardeuler'].values():
+                            all_ODE_outputs.append({"type": "backwardeuler",
+                                "classname": class_name,
+                                "outputname": backwardeuler_outp["output name"],
+                                "f1": backwardeuler_outp["f1"],
+                                "f2": backwardeuler_outp["f2"],
+                                "errorlim": backwardeuler_outp["errorlim"]})
+                        for stablediffeq_outp in memory['equations']['stablediffeq'].values():
+                            all_ODE_outputs.append({"type":"stablediffeq",
+                                "classname": class_name,
+                                "outputname": stablediffeq_outp["output name"],
+                                "dervname": stablediffeq_outp["dervname"],
+                                "errorlim": stablediffeq_outp["errorlim"]})
+                        for delay_outp in memory['equations']['delay'].values():
+                            all_ODE_outputs.append({"type":"delay",
+                                "classname": class_name,
+                                "outputname": delay_outp["output name"],
+                                "k": delay_outp["k"],
+                                "inputname": delay_outp["inputname"],
+                                "errorlim": delay_outp["errorlim"]})
+                        for stabledelay_outp in memory['equations']['stabledelay'].values():
+                            all_ODE_outputs.append({"type": "stabledelay",
+                                "classname": class_name,
+                                "outputname": stabledelay_outp["output name"],
+                                "k": stabledelay_outp["k"],
+                                "inputname": stabledelay_outp["inputname"],
+                                "errorlim": stabledelay_outp["errorlim"]})
+
                         #NOTE: afterthought hack - this should have been done earlier:
                         new_file_contents = new_file_contents.replace('" self.UP "', '"UP"')
                         new_file_contents = new_file_contents.replace('" self.DOWN "', '"DOWN"')
@@ -1235,29 +1297,34 @@ class Timer:
         for line in class_instantiations:
             f.write(line)
 
-        f.write("""def step():
-    Structure.Context_func()
-    Structure.Parms_func()
+        f.write("""
+components = #fill in
+
+all_ODEs = {}
+""".format(all_ODE_outputs))
+
+        f.write("""def step_with_timestep(timestep):
+    System.Dx = timestep
     Structure.Dervs_func()
     Structure.Wrapup_func()
-    System.X += System.Dx
-    for timer in timervars:
-        timer.count()""")
+""")
     
-source_dir = '/path/to/hummod-respository/'
+#source_dir = '/path/to/hummod-respository/'
+source_dir = '/Users/henryhoward/Downloads/hummod-standalone/'
 destination_dir = './src/'
 
 convert_directory(source_dir, ['Structure', 'Context'], destination_dir)
 
-#copy special_functions.py into the destination folder
-with open("special_functions.py", "r") as func_f1:
-    contents = func_f1.read()
-    with open(destination_dir+"special_functions.py", "w") as func_f2:
-        func_f2.write(contents)
+# #copy special_functions.py into the destination folder
+# with open("special_functions.py", "r") as func_f1:
+#     contents = func_f1.read()
+#     with open(destination_dir+"special_functions.py", "w") as func_f2:
+#         func_f2.write(contents)
 
 """
 TODO:
-whitenoise in phaeochromocytoma
 
+Include MaxDx for stablediffeq and stabledelay
+whitenoise in phaeochromocytoma
 fix ROUND
 """
