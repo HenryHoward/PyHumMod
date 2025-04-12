@@ -1,4 +1,4 @@
-from .special_functions import *
+from special_functions import *
 import math
 
 timervars = []
@@ -462,12 +462,11 @@ class ADHPool:
         else:
             self.Log10Conc = 0.0
 
-
     def Dervs_func(self):
         self.Gain = ADHSecretion.Rate + ADHPump.Rate
         self.Loss = ADHClearance.Total
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.3)
 
 
 class ADHSecretion:
@@ -548,7 +547,7 @@ class ADHFastMass:
 
     def Dervs_func(self):
         self.Change = ADHSlowMass.Flux - self.Flux - ADHSecretion.Rate
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 32.0)
 
 
 class ADHSlowMass:
@@ -562,7 +561,7 @@ class ADHSlowMass:
 
     def Dervs_func(self):
         self.Change = ADHSynthesis.Rate + ADHFastMass.Flux - self.Flux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 170.0)
 
 
 class ICFV:
@@ -812,7 +811,7 @@ class GlucosePool:
         self.Gain = GILumenCarbohydrates.Absorption + LM_Glucose.Release + GlucosePump.Rate
         self.Loss = Metabolism_Glucose.TotalUptake + LM_Glucose.Uptake + NephronGlucose.Spillover + GlucoseDecomposition.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 165.0)
 
 
 class GlucoseDecomposition:
@@ -896,7 +895,7 @@ class ThyroidPool:
         self.Gain = ThyroidSecretion.Rate + ThyroidPump.Rate
         self.Loss = ThyroidClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 12.0)
 
 
 class ThyroidSecretion:
@@ -1231,7 +1230,7 @@ class Skin_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.018)
 
 
 class Skin_Pressure:
@@ -1268,7 +1267,7 @@ class Skin_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Skin_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class Skin_Fuel:
@@ -1337,7 +1336,7 @@ class Skin_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class Skin_Metabolism:
@@ -1404,7 +1403,7 @@ class Skin_CO2:
         self.Outflow_0 = Skin_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.28)
 
 
 class Skin_Flow:
@@ -1496,7 +1495,7 @@ class Skin_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatSkin.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class Skin_AlphaReceptors:
@@ -1579,7 +1578,7 @@ class PO4Pool:
         self.Gain = DietIntakeElectrolytes.PO4__mEqperMin
         self.Loss = CD_PO4.Outflow
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.026)
 
 
 class PO4:
@@ -1611,7 +1610,7 @@ class NaPool:
         self.Gain = GILumenSodium.Absorption + IVDrip.NaRate + Transfusion.NaRate
         self.Loss = CD_Na.Outflow + SweatDuct.NaOutflow + Hemorrhage.NaRate + DialyzerActivity.Na_Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 21.7)
 
 
 class SO4:
@@ -1643,7 +1642,7 @@ class SO4Pool:
         self.Gain = DietIntakeElectrolytes.SO4__mEqperMin
         self.Loss = CD_SO4.Outflow
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.042)
 
 
 class ClPool:
@@ -1667,7 +1666,7 @@ class ClPool:
         self.Gain = GILumenChloride.Absorption + IVDrip.ClRate + Transfusion.ClRate
         self.Loss = CD_Cl.Outflow + SweatDuct.ClOutflow + Hemorrhage.ClRate + DialyzerActivity.Cl_Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 16.1)
 
 
 class Cl:
@@ -1687,7 +1686,7 @@ class KAldoEffect:
 
     def Dervs_func(self):
         self.Immediate = self.Effect_curve( AldoPool.conc_Aldo_pMolperL )
-        self.Delayed = delay( self.RateConst, self.Immediate, self.Delayed, System.Dx)
+        self.Delayed = delay( self.RateConst, self.Immediate, self.Delayed, System.Dx, 0.01)
 
 
 class K:
@@ -1739,7 +1738,7 @@ class KCell:
         self.Gain = KFluxToCell.Rate
         self.Loss = KFluxToPool.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 39.8)
 
 
 class KFluxToCell:
@@ -1773,7 +1772,7 @@ class KPool:
         self.Gain = GILumenPotassium.Absorption + KFluxToPool.Rate + IVDrip.KRate + Transfusion.KRate
         self.Loss = CD_K.Outflow + KFluxToCell.Rate + SweatDuct.KOutflow + Hemorrhage.KRate + DialyzerActivity.K_Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.66)
 
 
 class KMembrane:
@@ -1852,7 +1851,7 @@ class HeatSkeletalMuscle:
         self.Gain = Metabolism_CaloriesUsed.SkeletalMuscleHeat_kCalperMin
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 70.0)
 
 
 class HeatIVDrip:
@@ -1975,7 +1974,7 @@ class HeatSkin:
         self.Gain = Metabolism_CaloriesUsed.SkinHeat_kCalperMin + HeatCore.Flux
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 7.0)
 
 
 class HeatShivering:
@@ -2035,7 +2034,7 @@ class HeatCore:
         self.Gain = Metabolism_CaloriesUsed.CoreHeat_kCalperMin + HeatSkeletalMuscle.Flux + GILumenTemperature.Absorption + HeatIVDrip.Flux + HeatTransfusion.Flux
         self.Loss = self.Flux + HeatInsensibleLung.Flux + HeatUrine.Flux + HeatDialyzer.Flux + HeatHemorrhage.Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 123.0)
 
 
 class HeatInsensibleSkin:
@@ -2226,7 +2225,7 @@ class CellProtein:
         self.Gain = self.Inflow
         self.Loss = self.Outflow + self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 60000.0)
 
 
 class LungArtyO2:
@@ -2293,7 +2292,7 @@ class ExcessLungWater:
         else:
             self.NotFailed_func()
         self.Change = self.Flux - self.Lymph
-        self.Volume = diffeq( self.Change, System.Dx, self.Volume)
+        self.Volume = diffeq( self.Change, System.Dx, self.Volume, 10.0)
 
 
     def NotFailed_func(self):
@@ -2772,7 +2771,7 @@ class ReninSynthesis:
         self.TGFEffect = self.TGFEffect_curve( TGF_Renin.Signal )
         self.SympsEffect = self.SympsEffect_curve( Kidney_BetaReceptors.Activity )
         self.SteadyState = self.Base * self.TGFEffect * self.SympsEffect * Kidney_NephronCount.Total_xNormal * Kidney_Function.Effect
-        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx)
+        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx, 2.9)
 
 
 class ReninClearance:
@@ -2798,7 +2797,7 @@ class ReninFree:
         self.Gain = ReninSynthesis.Rate + ReninGranules.Flux
         self.Loss = ReninSecretion.Rate + self.Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 870.0)
 
 
 class A2Pump:
@@ -2829,7 +2828,7 @@ class ReninGranules:
         self.Gain = ReninGranules.Flux
         self.Loss = self.Flux
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 8700.0)
 
 
 class ReninPool:
@@ -2862,7 +2861,7 @@ class ReninPool:
         self.Gain = ReninSecretion.Rate + ReninTumor.Rate
         self.Loss = ReninClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 90.0)
 
 
 class ReninSecretion:
@@ -2959,7 +2958,7 @@ class FAPool:
         self.Gain = TriglycerideHydrolysis.FattyAcidRate + LipidDeposits_Release.Rate
         self.Loss = Metabolism_FattyAcid.TotalBurn + LipidDeposits_Uptake.Rate + LM_Ketoacids.FattyAcidUptake + FADecomposition.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 25.0)
 
 
 class FADecomposition:
@@ -3009,7 +3008,7 @@ class Pericardium_Cavity:
 
     def Dervs_func(self):
         self.Change = Pericardium_Hemorrhage.BloodFlow - Pericardium_Drain.BloodFlow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 0.1)
 
 
 class Pericardium_TMP:
@@ -3054,7 +3053,7 @@ class Pericardium_V0:
     def Dervs_func(self):
         self.PressureGradient = Pericardium_TMP.Pressure - self.NormalTMP
         self.Change = self.K * self.PressureGradient
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 5.0)
 
 
 class SkeletalMuscle_ContractileProtein:
@@ -3064,7 +3063,7 @@ class SkeletalMuscle_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 29.0)
 
 
 class SkeletalMuscle_Ph:
@@ -3143,7 +3142,7 @@ class SkeletalMuscle_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class SkeletalMuscle:
@@ -3172,7 +3171,7 @@ class SkeletalMuscle_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatSkeletalMuscle.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class SkeletalMuscle_Pressure:
@@ -3245,7 +3244,7 @@ class SkeletalMuscle_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.202)
 
 
 class SkeletalMuscle_Metabolism:
@@ -3471,7 +3470,7 @@ class SkeletalMuscle_CO2:
         self.Outflow_0 = SkeletalMuscle_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 3.24)
 
 
 class SkeletalMuscle_MetabolicVasodilation:
@@ -3506,7 +3505,7 @@ class SkeletalMuscle_MetabolicVasodilation:
         else:
             self.K = self.OffK
 
-        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx, 0.01)
 
 
 class SkeletalMuscle_Flow:
@@ -3580,7 +3579,7 @@ class SkeletalMuscle_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( SkeletalMuscle_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class SkeletalMuscle_Glycogen:
@@ -3617,7 +3616,7 @@ class SkeletalMuscle_Glycogen:
         self.Metabolism_CalperMin = SkeletalMuscle_Metabolism.AnaerobicCals * self.Availability
         self.Metabolism = self.Metabolism_CalperMin * Metabolism_Tools.CarboAnaerobic_mGperCal
         self.Change = self.MG_TO_G * ( self.Synthesis - self.Metabolism )
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 5.3)
 
 
 class SkeletalMuscle_Insulin:
@@ -3630,7 +3629,7 @@ class SkeletalMuscle_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = InsulinPool.conc_Insulin
-        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx, 0.2)
 
 
 class InsulinInjection:
@@ -3677,7 +3676,7 @@ class hCG:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Estradiol:
@@ -3720,7 +3719,7 @@ class Estradiol:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.01)
 
 
 class DailyPlannerControl:
@@ -4473,7 +4472,7 @@ class MidodrinePool:
         self.Gain = MidodrineGILumen.Loss
         self.Loss = self.K * self.Mass
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 20.0)
 
 
 class MidodrineGILumen:
@@ -4491,7 +4490,7 @@ class MidodrineGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.NIPHCL * self.PERM * self.Mass
         self.Change = - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 5.0)
 
 
 class MidodrineDailyDose:
@@ -4561,7 +4560,7 @@ class DesglymidodrinePool:
         self.Gain = self.NIPGLYCINE * MidodrinePool.Loss
         self.Loss = DesglymidodrineKidney.UrineLoss
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 40.0)
 
 
 class DesglymidodrineKidney:
@@ -4656,7 +4655,7 @@ class DigoxinPool:
         self.Gain = DigoxinGILumen.Loss
         self.Loss = DigoxinKidney.UrineLoss
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.01)
 
 
     def Wrapup_func(self):
@@ -4730,7 +4729,7 @@ class DigoxinGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.PERM * self.Mass
         self.Change = - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.01)
 
 
 class FurosemideSingleDose:
@@ -4750,7 +4749,7 @@ class FurosemideSingleDose:
     def Dervs_func(self):
         self.Loss = self.K * self.Mass
         self.Change = - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
     def InjectNow_func(self):
@@ -4792,7 +4791,7 @@ class FurosemidePool:
         self.NonrenalLoss = self.NONRENALK * self.Mass
         self.Loss = self.NonrenalLoss + FurosemideKidney.UrineLoss
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Furosemide:
@@ -4830,7 +4829,7 @@ class ThiazideGILumen:
     def Dervs_func(self):
         self.Loss = self.BIOAVAIL * self.PERM * self.Mass
         self.Change = - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Chlorothiazide:
@@ -4915,7 +4914,7 @@ class ThiazidePool:
         self.Gain = ThiazideGILumen.Loss
         self.Loss = ThiazideKidney.UrineLoss
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class ThiazideSingleDose:
@@ -5075,7 +5074,7 @@ class GILumenSodium:
         self.Absorption = self.Perm * self.Mass
         self.Diarrhea = GILumenDiarrhea.Na_Loss
         self.Change = self.Intake - self.Absorption - self.Diarrhea
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.8)
 
 
 class GILumenPotassium:
@@ -5095,7 +5094,7 @@ class GILumenPotassium:
         self.Intake = DietIntakeElectrolytes.K__mEqperMin
         self.Absorption = self.Perm * self.Mass
         self.Change = self.Intake - self.Absorption
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.25)
 
 
 class GILumenChloride:
@@ -5117,7 +5116,7 @@ class GILumenChloride:
         self.Absorption = self.Perm * self.Mass
         self.Vomitus = GILumenVomitus.Cl_Loss
         self.Change = self.Intake - self.Absorption - self.Vomitus
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.9)
 
 
 class GILumenElectrolytes:
@@ -5162,7 +5161,7 @@ class GILumenVolume:
         self.Vomitus = GILumenVomitus.H2OLoss
         self.Diarrhea = GILumenDiarrhea.H2OLoss
         self.Change = self.Intake - self.Absorption - self.Vomitus - self.Diarrhea
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 10.0)
 
 
 class GILumenH2O:
@@ -5206,7 +5205,7 @@ class GILumenTemperature:
         self.Gain = self.Intake
         self.Loss = self.Absorption + self.Vomitus + self.Diarrhea
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.6)
 
 
 class GILumenDiarrhea:
@@ -5263,7 +5262,7 @@ class GILumenCarbohydrates:
         self.Intake = DietIntakeNutrition.Carbo_mGperMin
         self.Absorption = self.Transporter * self.AbsorptionSaturation_curve( self.Mass )
         self.Change = self.Intake - self.Absorption
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 19.3)
 
 
 class GILumenFood:
@@ -5293,7 +5292,7 @@ class GILumenProtein:
         self.Intake = DietIntakeNutrition.Protein_mGperMin
         self.Absorption = self.Mass * self.Perm
         self.Change = self.Intake - self.Absorption
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 16.0)
 
 
 class GILumenFat:
@@ -5311,7 +5310,7 @@ class GILumenFat:
         self.Intake = DietIntakeNutrition.Fat_mGperMin
         self.Absorption = self.Perm * self.Mass
         self.Change = self.Intake - self.Absorption
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 19.9)
 
 
 class GITract_Pressure:
@@ -5357,7 +5356,7 @@ class GITract_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class GITract_Metabolism:
@@ -5424,7 +5423,7 @@ class GITract_CO2:
         self.Outflow_0 = GITract_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.18)
 
 
 class GITract_Fuel:
@@ -5493,7 +5492,7 @@ class GITract_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class GITract_Ph:
@@ -5629,7 +5628,7 @@ class GITract_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( GITract_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class GITract_Flow:
@@ -5725,7 +5724,7 @@ class GITract_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.011)
 
 
 class AldoSecretion:
@@ -5789,7 +5788,7 @@ class AldoPool:
         self.Gain = AldoSecretion.Rate + AldoPump.Rate
         self.Loss = AldoDisposal.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 142.0)
 
 
 class AldoTumor:
@@ -5859,7 +5858,7 @@ class O2Artys:
         else:
             self.conc_O2_SteadyState = 0.0
 
-        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx)
+        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx, 0.002)
 
 
 class PO2Artys:
@@ -5896,7 +5895,7 @@ class O2Veins:
         else:
             self.conc_O2_SteadyState = 0.0
 
-        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx)
+        self.conc_O2 = delay( self.K, self.conc_O2_SteadyState, self.conc_O2, System.Dx, 0.0015)
 
 
 class O2:
@@ -6043,7 +6042,7 @@ class SweatFuel:
         self.Gain = self.RefillK * self.MassEffect
         self.Loss = self.UseK * SweatGland.H2ORateBasic
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.01)
 
 
 class SweatAcclimation:
@@ -6062,7 +6061,7 @@ class SweatAcclimation:
     def Dervs_func(self):
         self.TemperatureEffect = self.TemperatureEffect_curve( HeatSkin.Temp_F )
         self.SteadyState = self.BasicEffect * self.TemperatureEffect
-        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx, 0.01)
 
 
 class Kidney_Alpha:
@@ -6154,7 +6153,7 @@ class Kidney_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.0026)
 
 
 class Kidney_O2:
@@ -6202,7 +6201,7 @@ class Kidney_MyogenicDelay:
         self.K = 2.0
         self.DxMax = 0.2
         self.PressureChange_Steady_State = Kidney_Myogenic.PressureChange_Steady_State
-        self.PressureChange = delay( self.K, self.PressureChange_Steady_State, self.PressureChange, System.Dx)
+        self.PressureChange = delay( self.K, self.PressureChange_Steady_State, self.PressureChange, System.Dx, 0.1)
 
 
 class Kidney_Fuel:
@@ -6271,7 +6270,7 @@ class Kidney_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class Kidney:
@@ -6396,7 +6395,7 @@ class Kidney_CO2:
         self.Outflow_0 = Kidney_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.04)
 
 
 class Kidney_Structure:
@@ -6421,7 +6420,7 @@ class Kidney_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class Kidney_Metabolism:
@@ -6594,7 +6593,7 @@ class Kidney_Myogenic:
             self.PressureChange_Steady_State = self.InterlobarPressure - self.AdaptedPressure
 
         Kidney_MyogenicDelay.Dervs_func()
-        self.AdaptedPressure = delay( self.K, self.InterlobarPressure, self.AdaptedPressure, System.Dx)
+        self.AdaptedPressure = delay( self.K, self.InterlobarPressure, self.AdaptedPressure, System.Dx, 0.1)
 
 
 class AnesthesiaGasBone:
@@ -6615,7 +6614,7 @@ class AnesthesiaGasBone:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Bone_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGas:
@@ -6684,7 +6683,7 @@ class AnesthesiaGasBrain:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Brain_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasLiver:
@@ -6711,7 +6710,7 @@ class AnesthesiaGasLiver:
 
         self.Uptake = ( self.conc_Arty - self.conc_Vein ) * OrganFlow.HepaticVeinFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasGITract:
@@ -6732,7 +6731,7 @@ class AnesthesiaGasGITract:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * GITract_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasSkeletalMuscle:
@@ -6753,7 +6752,7 @@ class AnesthesiaGasSkeletalMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * SkeletalMuscle_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasFat:
@@ -6774,7 +6773,7 @@ class AnesthesiaGasFat:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Fat_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasRespiratoryMuscle:
@@ -6795,7 +6794,7 @@ class AnesthesiaGasRespiratoryMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * RespiratoryMuscle_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasVein:
@@ -6819,8 +6818,6 @@ class AnesthesiaGasVein:
         self.Gain = ( AnesthesiaGasArty.conc_Blood * A_VFistula_Flow.BloodFlow ) + ( AnesthesiaGasBone.conc_Vein * Bone_Flow.BloodFlow ) + ( AnesthesiaGasBrain.conc_Vein * Brain_Flow.BloodFlow ) + ( AnesthesiaGasFat.conc_Vein * Fat_Flow.BloodFlow ) + ( AnesthesiaGasGITract.conc_Vein * GITract_Flow.BloodFlow ) + ( AnesthesiaGasKidney.conc_Vein * Kidney_Flow.BloodFlow ) + ( AnesthesiaGasLeftHeart.conc_Vein * LeftHeart_Flow.BloodFlow ) + ( AnesthesiaGasLiver.conc_Vein * OrganFlow.HepaticVeinFlow ) + ( AnesthesiaGasOtherTissue.conc_Vein * OtherTissue_Flow.BloodFlow ) + ( AnesthesiaGasRespiratoryMuscle.conc_Vein * RespiratoryMuscle_Flow.BloodFlow ) + ( AnesthesiaGasRightHeart.conc_Vein * RightHeart_Flow.BloodFlow ) + ( AnesthesiaGasSkeletalMuscle.conc_Vein * SkeletalMuscle_Flow.BloodFlow ) + ( AnesthesiaGasSkin.conc_Vein * Skin_Flow.BloodFlow )
         self.Loss = PulmArty.Outflow * self.conc_Blood
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
-
 
 class AnesthesiaGasSkin:
     def __init__(self):
@@ -6840,7 +6837,7 @@ class AnesthesiaGasSkin:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Skin_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasLeftHeart:
@@ -6866,7 +6863,7 @@ class AnesthesiaGasLeftHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * LeftHeart_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasLung:
@@ -6930,8 +6927,6 @@ class AnesthesiaGasArty:
         self.Gain = ( AnesthesiaGasLung.conc_Capy * LungBloodFlow.AlveolarVentilated ) + ( AnesthesiaGasVein.conc_Blood * LungBloodFlow.TotalShunt )
         self.Loss = SystemicArtys.Outflow * self.conc_Blood
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
-
 
 class AnesthesiaGasOtherTissue:
     def __init__(self):
@@ -6956,7 +6951,7 @@ class AnesthesiaGasOtherTissue:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * OtherTissue_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasKidney:
@@ -6977,7 +6972,7 @@ class AnesthesiaGasKidney:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * Kidney_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaGasRightHeart:
@@ -6998,7 +6993,7 @@ class AnesthesiaGasRightHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaGasArty.conc_Blood - self.conc_Vein ) * RightHeart_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class CO:
@@ -7039,7 +7034,7 @@ class CO:
             return EndUptake
         self.Uptake = impliciteq( Uptakeimplicitfunc, self.Uptake, 0.01)
         self.Change = self.Uptake + self.EndogenousProduction
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 10.0)
 
 
 class PhCells:
@@ -7150,7 +7145,7 @@ class InsulinSynthesis:
     def Dervs_func(self):
         self.MassEffect = self.MassEffect_curve( InsulinStorage.Mass )
         self.SteadyState = self.MassEffect
-        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx)
+        self.Rate = delay( self.K, self.SteadyState, self.Rate, System.Dx, 0.17)
 
 
 class InsulinPump:
@@ -7193,7 +7188,7 @@ class InsulinPool:
         self.Gain = InsulinSecretion.Rate + InsulinPump.Rate
         self.Loss = InsulinClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Insulin:
@@ -7222,7 +7217,7 @@ class InsulinStorage:
         self.Gain = InsulinSynthesis.Rate
         self.Loss = InsulinSecretion.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 20.0)
 
 
 class LeftHeartPumping_Valves:
@@ -7339,7 +7334,7 @@ class Bone_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.035)
 
 
 class Bone_Size:
@@ -7467,7 +7462,7 @@ class Bone_CO2:
         self.Outflow_0 = Bone_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.56)
 
 
 class Bone_Fuel:
@@ -7536,7 +7531,7 @@ class Bone_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class Bone_Vasculature:
@@ -7556,7 +7551,7 @@ class Bone_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Bone_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class Bone_Structure:
@@ -7581,7 +7576,7 @@ class Bone_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class Bone:
@@ -7629,7 +7624,7 @@ class Bone_Mineral:
 
     def Dervs_func(self):
         self.Change = 0.0
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 57.5)
 
 
 class Bone_Flow:
@@ -7828,7 +7823,7 @@ class UT_H2O:
         self.Gain = UT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = UT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 98.0)
 
 
 class MT_H2O:
@@ -7857,7 +7852,7 @@ class MT_H2O:
         self.Gain = MT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = MT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 190.0)
 
 
 class LT_H2O:
@@ -7886,7 +7881,7 @@ class LT_H2O:
         self.Gain = LT_CapillaryWater.Rate + self.MetabolicH2O
         self.Loss = LT_LymphWater.Rate + self.SweatH2O + self.InsensibleSkinH2O + self.InsensibleLungH2O
         self.Change = self.Gain - self.Loss
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 98.0)
 
 
 class MT_CapillaryProtein:
@@ -8106,7 +8101,7 @@ class MT_InterstitialProtein:
         self.Gain = MT_CapillaryProtein.Rate
         self.Loss = MT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.75)
 
 
 class UT_InterstitialProtein:
@@ -8129,7 +8124,7 @@ class UT_InterstitialProtein:
         self.Gain = UT_CapillaryProtein.Rate
         self.Loss = UT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.75)
 
 
 class LT_InterstitialProtein:
@@ -8152,7 +8147,7 @@ class LT_InterstitialProtein:
         self.Gain = LT_CapillaryProtein.Rate
         self.Loss = LT_LymphProtein.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.75)
 
 
 class InterstitialProtein:
@@ -8243,7 +8238,7 @@ class PeritoneumSpace:
         self.OutflowGrad = self.Pressure - self.ExternalPressure
         self.Loss = ( max( ( self.OutflowGrad * self.OutflowPerm ), 0.0) )
         self.Change = self.Gain - self.Loss
-        self.Volume = diffeq( self.Change, System.Dx, self.Volume)
+        self.Volume = diffeq( self.Change, System.Dx, self.Volume, 10.0)
 
 
 class Peritoneum:
@@ -8268,7 +8263,7 @@ class PeritoneumProtein:
         self.Gain = PeritoneumSpace.Gain * PlasmaProtein.conc_Protein
         self.Loss = PeritoneumSpace.Loss * self.conc_Protein
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 10.0)
 
 
 class GlycerolPool:
@@ -8310,7 +8305,7 @@ class GlycerolPool:
         self.Gain = self.Synthesis + self.TriglycerideHydrolysis
         self.Loss = self.Degradation + self.GutFAAbsorption + self.LiverFARelease
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 15.0)
 
 
 class Glycerol:
@@ -8558,7 +8553,7 @@ class conc_EPODelay:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( EPOPool.Log10Conc )
-        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx, 0.01)
 
 
 class RBCSecretion:
@@ -8591,7 +8586,7 @@ class PlasmaVol:
         self.Gain = GILumenVolume.Absorption + LymphWater.Rate + IVDrip.H2ORate + ExcessLungWater.Flux + PeritoneumSpace.Loss + Transfusion.PlasmaRate
         self.Loss = CD_H2O.Outflow + CapillaryWater.Rate + ExcessLungWater.Flux + PeritoneumSpace.Gain + Hemorrhage.PlasmaRate + Pericardium_Hemorrhage.PlasmaFlow
         self.Change = self.Gain - self.Loss
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 30.0)
 
 
 class BloodVol:
@@ -8689,7 +8684,7 @@ class RBCVol:
         self.Gain = RBCSecretion.Rate + Transfusion.RBCRate
         self.Loss = RBCClearance.Rate + Hemorrhage.RBCRate + Pericardium_Hemorrhage.RBCFlow
         self.Change = self.Gain - self.Loss
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
+        self.Vol = diffeq( self.Change, System.Dx, self.Vol, 24.0)
 
 
 class RBCH2O:
@@ -8790,7 +8785,7 @@ class TriglyceridePool:
         self.Gain = self.GutAbsorption + self.LiverRelease
         self.Loss = TriglycerideHydrolysis.Rate + TriglycerideDecomposition.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 125.0)
 
 
 class Triglyceride:
@@ -9349,7 +9344,7 @@ class RightHeart_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( RightHeart_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class RightHeart_Work:
@@ -9524,7 +9519,7 @@ class RightHeart_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class RightHeart_CO2:
@@ -9566,7 +9561,7 @@ class RightHeart_CO2:
         self.Outflow_0 = RightHeart_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.01)
 
 
 class RightHeart_AlphaReceptors:
@@ -9597,7 +9592,7 @@ class RightHeart_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.12)
 
 
 class RightHeart_Ph:
@@ -9638,7 +9633,7 @@ class RightHeart_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class RightHeart_Metabolism:
@@ -9703,7 +9698,7 @@ class RightHeart_Infarction:
         self.DeadTissueK = 0.004
         self.DamagedTissueFraction = self.Areapercent / 100.0
         self.Effect = 1.0 - self.DamagedTissueFraction
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx, 0.01)
 
 
     def Dervs_func(self):
@@ -9716,7 +9711,7 @@ class RightHeart_Infarction:
             self.IsIschemic = True
         else:
             pass
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx, 0.01)
 
 
 class RightHeart_Flow:
@@ -9818,7 +9813,7 @@ class RightHeart_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.0003)
 
 
 class AminoAcid:
@@ -9850,7 +9845,7 @@ class AAPool:
         self.Gain = GILumenProtein.Absorption + CellProtein.Outflow
         self.Loss = CellProtein.Inflow + LM_AminoAcids.Uptake
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 75.0)
 
 
 class GnRH:
@@ -10045,7 +10040,7 @@ class LipidDeposits:
         self.Loss = LipidDeposits_Release.Rate
         self.Change_mGperMin = self.Gain - self.Loss
         self.Change = 0.001 * self.Change_mGperMin
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 130.0)
 
 
 class LipidDeposits_Uptake:
@@ -10111,9 +10106,9 @@ class OralH2OGlucoseLoad:
     def Dervs_func(self):
         self.H2OChange = self.H2ORate
         self.GlucoseChange = self.GlucoseRate
-        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O)
+        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O, None)
 
-        self.TotalGlucose = diffeq( self.GlucoseChange, System.Dx, self.TotalGlucose)
+        self.TotalGlucose = diffeq( self.GlucoseChange, System.Dx, self.TotalGlucose, None)
 
 
 class BVSeq:
@@ -10144,8 +10139,6 @@ class BVSeqVeins:
     def Dervs_func(self):
         self.DxMax = 0.8
         self.Change = self.Conductance * ( RegionalPressure.LowerVein - self.Pressure )
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class BVSeqArtys:
     def __init__(self):
@@ -10164,8 +10157,6 @@ class BVSeqArtys:
     def Dervs_func(self):
         self.DxMax = 0.2
         self.Change = self.Conductance * ( RegionalPressure.LowerArty - self.Pressure )
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class CardiacCycle:
     def __init__(self):
@@ -10197,7 +10188,7 @@ class HypothalamusSweatingAcclimation:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( HeatSkin.Temp_C )
-        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx)
+        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx, 0.003)
 
 
 class HypothalamusShivering:
@@ -10295,7 +10286,7 @@ class HypothalamusShiveringAcclimation:
 
     def Dervs_func(self):
         self.SteadyState = self.SteadyState_curve( HeatSkin.Temp_C )
-        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx)
+        self.Offset = delay( self.K, self.SteadyState, self.Offset, System.Dx, 0.003)
 
 
 class RespiratoryCenter_Exercise:
@@ -10425,7 +10416,7 @@ class GlucagonPool:
         self.Gain = GlucagonSecretion.Rate
         self.Loss = GlucagonClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 15.0)
 
 
 class GlucagonClearance:
@@ -10480,7 +10471,7 @@ class NephronANP:
             self.Log10Conc = 0.0
 
         self.conc_ANPPool = ANPPool.conc_ANP
-        self.conc_ANPDelayed = delay( self.K, self.conc_ANPPool, self.conc_ANPDelayed, System.Dx)
+        self.conc_ANPDelayed = delay( self.K, self.conc_ANPPool, self.conc_ANPDelayed, System.Dx, None)
 
 
 class NephronIFP:
@@ -10532,7 +10523,7 @@ class NephronAldo:
             self.conc_Aldo_nGperdL = self.conc_AldoDelayed
 
         self.conc_AldoPool = AldoPool.conc_Aldo_nGperdL
-        self.conc_AldoDelayed = delay( self.K, self.conc_AldoPool, self.conc_AldoDelayed, System.Dx)
+        self.conc_AldoDelayed = delay( self.K, self.conc_AldoPool, self.conc_AldoDelayed, System.Dx, None)
 
 
 class VasaRecta:
@@ -10591,7 +10582,7 @@ class NephronADH:
             self.Log10Conc = 0.0
 
         self.conc_ADHPool = ADHPool.conc_ADH
-        self.conc_ADHDelayed = delay( self.K, self.conc_ADHPool, self.conc_ADHDelayed, System.Dx)
+        self.conc_ADHDelayed = delay( self.K, self.conc_ADHPool, self.conc_ADHDelayed, System.Dx, None)
 
 
 class NephronKetoacids:
@@ -10921,7 +10912,7 @@ class TGF_Vascular:
         else:
             self.Steady_State = self.BasicSignal * self.NaEffect * self.A2Effect * self.ANPEffect * self.FurosemideEffect
 
-        self.Signal = delay( self.K, self.Steady_State, self.Signal, System.Dx)
+        self.Signal = delay( self.K, self.Steady_State, self.Signal, System.Dx, 0.01)
 
 
 class MedullaUrea:
@@ -10946,7 +10937,7 @@ class MedullaUrea:
     def Dervs_func(self):
         self.Washup = self.CCK * self.conc_Urea * VasaRecta.Outflow
         self.Change = CD_Urea.Reab - self.Washup
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 5.9)
 
 
 class MedullaNa:
@@ -10970,7 +10961,7 @@ class MedullaNa:
     def Dervs_func(self):
         self.Washup = self.CCK * self.conc_Na_ * VasaRecta.Outflow
         self.Change = CD_Na.Reab - self.Washup
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.13)
 
 
 class Medulla:
@@ -11069,7 +11060,7 @@ class PT_NH3:
         self.AcutePhEffect = self.PhOnAcute_curve( BloodPh.ArtysPh )
         self.ChronicPhEffect = self.PhOnChronic_curve( BloodPh.ArtysPh )
         self.SecretionRate = self.BasicRate * self.AcutePhEffect * self.ChronicDelay
-        self.ChronicDelay = delay( self.K, self.ChronicPhEffect, self.ChronicDelay, System.Dx)
+        self.ChronicDelay = delay( self.K, self.ChronicPhEffect, self.ChronicDelay, System.Dx, None)
 
 
 class ProximalTubule:
@@ -11343,7 +11334,7 @@ class CD_H2OChannels:
 
     def CalcDervs_func(self):
         self.Change = ( self.InactivateK * CD_H2O.Reab ) - ( self.ReactivateK * self.Inactive )
-        self.Inactive = diffeq( self.Change, System.Dx, self.Inactive)
+        self.Inactive = diffeq( self.Change, System.Dx, self.Inactive, 0.01)
 
 
 class CD_Na:
@@ -11714,7 +11705,7 @@ class Testosterone:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 2.0)
 
 
 class HeartValves:
@@ -11877,9 +11868,9 @@ class DialyzerActivity:
             self.UreaFlux = 0.0
         self.DialysateChange = self.DialysateFlow
         self.UltrafiltrationChange = self.UltrafiltrationRate
-        self.TotalDialysateUsed = diffeq( self.DialysateChange, System.Dx, self.TotalDialysateUsed)
+        self.TotalDialysateUsed = diffeq( self.DialysateChange, System.Dx, self.TotalDialysateUsed, None)
 
-        self.TotalUltrafiltration = diffeq( self.UltrafiltrationChange, System.Dx, self.TotalUltrafiltration)
+        self.TotalUltrafiltration = diffeq( self.UltrafiltrationChange, System.Dx, self.TotalUltrafiltration, None)
 
 
     def Wrapup_func(self):
@@ -12020,7 +12011,7 @@ class ANPSecretion:
         else:
             self.Rate = self.NaturalRate
 
-        self.NaturalRate = delay( self.K, self.SteadyState, self.NaturalRate, System.Dx)
+        self.NaturalRate = delay( self.K, self.SteadyState, self.NaturalRate, System.Dx, 0.67)
 
 
 class ANPPool:
@@ -12057,7 +12048,7 @@ class ANPPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = ANPClearance.K
-        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass, 3.0)
 
 
 class ANPClearance:
@@ -12138,7 +12129,7 @@ class CreatininePool:
         self.Gain = CreatineCells.CreatineToCreatinine
         self.Loss = self.RenalLoss + self.ExtrarenalLoss
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 3.1)
 
 
 class Creatinine:
@@ -12219,7 +12210,7 @@ class Transfusion:
         self.NaRate = 0.140 * self.Rate
         self.KRate = 0.0044 * self.Rate
         self.ClRate = 0.105 * self.Rate
-        self.Volume = diffeq( self.Rate, System.Dx, self.Volume)
+        self.Volume = diffeq( self.Rate, System.Dx, self.Volume, 10.0)
 
 
     def CalcVol_func(self):
@@ -12286,7 +12277,7 @@ class BladderChloride:
 
     def Dervs_func(self):
         self.Change = CD_Cl.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12304,7 +12295,7 @@ class BladderSulphate:
 
     def Dervs_func(self):
         self.Change = CD_SO4.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12322,7 +12313,7 @@ class BladderKetoacid:
 
     def Dervs_func(self):
         self.Change = CD_KA.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12340,7 +12331,7 @@ class BladderCreatinine:
 
     def Dervs_func(self):
         self.Change = CD_Creatinine.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12358,7 +12349,7 @@ class BladderGlucose:
 
     def Dervs_func(self):
         self.Change = CD_Glucose.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12376,7 +12367,7 @@ class BladderUrea:
 
     def Dervs_func(self):
         self.Change = CD_Urea.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12394,7 +12385,7 @@ class BladderPotassium:
 
     def Dervs_func(self):
         self.Change = CD_K.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12412,7 +12403,7 @@ class BladderPhosphate:
 
     def Dervs_func(self):
         self.Change = CD_PO4.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12430,7 +12421,7 @@ class BladderSodium:
 
     def Dervs_func(self):
         self.Change = CD_Na.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12448,7 +12439,7 @@ class BladderProtein:
 
     def Dervs_func(self):
         self.Change = CD_Protein.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12466,7 +12457,7 @@ class BladderBicarbonate:
 
     def Dervs_func(self):
         self.Change = CD_HCO3.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12484,7 +12475,7 @@ class BladderAmmonia:
 
     def Dervs_func(self):
         self.Change = CD_NH4.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, None)
 
 
     def Conc_func(self):
@@ -12501,7 +12492,7 @@ class BladderVolume:
 
     def Dervs_func(self):
         self.Change = CD_H2O.Outflow
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 10.0)
 
 
     def Void_func(self):
@@ -12526,7 +12517,7 @@ class Hemorrhage:
         else:
             self.Rate = 0.0
 
-        self.Volume = diffeq( self.Rate, System.Dx, self.Volume)
+        self.Volume = diffeq( self.Rate, System.Dx, self.Volume, 10.0)
 
 
     def Dervs_func(self):
@@ -12579,7 +12570,7 @@ class LeftHeart_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.002)
 
 
 class LeftHeart_Metabolism:
@@ -12619,7 +12610,7 @@ class LeftHeart_Infarction:
         self.DeadTissueK = 0.004
         self.DamagedTissueFraction = self.Areapercent / 100.0
         self.Effect = 1.0 - self.DamagedTissueFraction
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx, 0.01)
 
 
     def Dervs_func(self):
@@ -12632,7 +12623,7 @@ class LeftHeart_Infarction:
             self.IsIschemic = True
         else:
             pass
-        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx)
+        self.DeadTissueFraction = delay( self.DeadTissueK, self.DamagedTissueFraction, self.DeadTissueFraction, System.Dx, 0.01)
 
 
 class LeftHeart_Flow:
@@ -12839,7 +12830,7 @@ class LeftHeart_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( LeftHeart_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class LeftHeart_Ph:
@@ -12939,7 +12930,7 @@ class LeftHeart_CO2:
         self.Outflow_0 = LeftHeart_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.04)
 
 
 class LeftHeart_Structure:
@@ -12964,7 +12955,7 @@ class LeftHeart_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class LeftHeart_Fuel:
@@ -13033,7 +13024,7 @@ class LeftHeart_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class LeftHeart_ContractileProtein:
@@ -13043,7 +13034,7 @@ class LeftHeart_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.38)
 
 
 class Exercise_Treadmill:
@@ -13099,7 +13090,7 @@ class Exercise_Treadmill:
             self.Velocity = 0.0
         self.Distance_Miles = self.DistanceTraveled_Feet / 5280.0
         self.Distance_kM = 1.609 * self.Distance_Miles
-        self.DistanceTraveled_Feet = diffeq( self.Velocity, System.Dx, self.DistanceTraveled_Feet)
+        self.DistanceTraveled_Feet = diffeq( self.Velocity, System.Dx, self.DistanceTraveled_Feet, None)
 
 
     def ResetTime_and_Distance_func(self):
@@ -13192,11 +13183,11 @@ class Exercise_Metabolism:
         self.TotalCals = self.WattsToCals * self.TotalWatts
         self.MotionCals = self.WattsToCals * self.MotionWatts
         self.HeatCals = self.WattsToCals * self.HeatWatts
-        self.TotalWatts = delay( self.TotalWattsK, self.TargetTotalWatts, self.TotalWatts, System.Dx)
+        self.TotalWatts = delay( self.TotalWattsK, self.TargetTotalWatts, self.TotalWatts, System.Dx, 3.0)
 
-        self.MotionWatts = delay( self.MotionWattsK, self.TargetMotionWatts, self.MotionWatts, System.Dx)
+        self.MotionWatts = delay( self.MotionWattsK, self.TargetMotionWatts, self.MotionWatts, System.Dx, 0.6)
 
-        self.ContractionRate = delay( self.ContractionRateK, self.TargetContractionRate, self.ContractionRate, System.Dx)
+        self.ContractionRate = delay( self.ContractionRateK, self.TargetContractionRate, self.ContractionRate, System.Dx, 0.5)
 
 
 class Exercise:
@@ -13313,7 +13304,7 @@ class Pheochromocytoma:
         self.EpiRate = self.EpiFract * self.Rate
         self.NERate = self.NEFract * self.Rate
         self.Change = self.Switch * self.Severity - self.Rate
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 50000.0)
 
 
     def Wrapup_func(self):
@@ -13367,7 +13358,7 @@ class NEPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = 1000 * NEClearance.K / ECFV.Vol
-        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass, 36.0)
 
 
 class EpiPump:
@@ -13475,7 +13466,7 @@ class EpiPool:
         self.Change = self.Gain - self.Loss
         self.F1 = self.Gain
         self.F2 = 1000.0 * EpiClearance.K / ECFV.Vol
-        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass)
+        self.Mass = backwardeuler( self.F1, self.F2, System.Dx, self.Mass, 6.0)
 
 
 class NEClearance:
@@ -13590,7 +13581,7 @@ class Inhibin:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.8)
 
 
 class UreaPool:
@@ -13632,7 +13623,7 @@ class UreaPool:
         self.Gain = LM_AminoAcids.Urea + self.FluxFromCells
         self.Loss = CD_Urea.Outflow
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 54.0)
 
 
 class Urea:
@@ -13671,7 +13662,7 @@ class UreaCell:
 
     def Dervs_func(self):
         self.Change = ( UreaPool.conc_Urea - self.conc_Urea ) * self.DC
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 101.0)
 
 
 class EPOClearance:
@@ -13725,7 +13716,7 @@ class EPOPool:
         self.Gain = EPOSecretion.Rate + EPOPump.Rate
         self.Loss = EPOClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.2)
 
 
 class EPO:
@@ -13782,7 +13773,7 @@ class LacPool:
 
     def CalcDervs_func(self):
         self.Change = Bone_Lactate.Outflux + Brain_Lactate.Outflux + Fat_Lactate.Outflux + GITract_Lactate.Outflux + Kidney_Lactate.Outflux + LeftHeart_Lactate.Outflux + Liver_Lactate.Outflux + OtherTissue_Lactate.Outflux + RespiratoryMuscle_Lactate.Outflux + RightHeart_Lactate.Outflux + SkeletalMuscle_Lactate.Outflux + Skin_Lactate.Outflux + self.PumpRate
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.15)
 
 
 class Infusions:
@@ -14244,7 +14235,7 @@ class Brain_CO2:
         self.Outflow_0 = Brain_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.14)
 
 
 class Brain_Fuel:
@@ -14313,7 +14304,7 @@ class Brain_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class Brain_Lactate:
@@ -14355,7 +14346,7 @@ class Brain_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.008)
 
 
 class Brain_Metabolism:
@@ -14405,7 +14396,7 @@ class Brain_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class GlasgowComaScale:
@@ -14447,7 +14438,7 @@ class Brain_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Brain_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class Brain_Size:
@@ -14524,7 +14515,7 @@ class BrainInsult_PO2:
         self.K = 4.0
         self.DxMax = 1.0
         self.PO2 = Brain_Flow.PO2
-        self.PO2Delay = delay( self.K, self.PO2, self.PO2Delay, System.Dx)
+        self.PO2Delay = delay( self.K, self.PO2, self.PO2Delay, System.Dx, 0.37)
 
 
 class BrainInsult_Temperature:
@@ -14696,8 +14687,6 @@ class LeftAtrium:
         self.Inflow = PulmVeins.Outflow
         self.Outflow = LeftVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class SplanchnicVeins:
     def __init__(self):
@@ -14725,8 +14714,6 @@ class SplanchnicVeins:
         self.Inflow = OrganFlow.HepaticVeinFlow
         self.Outflow = self.Conductance * ( self.Pressure - RightAtrium.Pressure )
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class PulmVeins:
     def __init__(self):
@@ -14754,8 +14741,6 @@ class PulmVeins:
         self.Inflow = PulmCapys.Outflow
         self.Outflow = self.Conductance * ( self.Pressure - LeftAtrium.Pressure )
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class PulmArty:
     def __init__(self):
@@ -14789,8 +14774,6 @@ class PulmArty:
 
         self.Inflow = RightVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
     def PulsatilePressure_func(self):
         self.SBP = self.Pressure + ( self.KS * ( CardiacOutput.StrokeVolume / self.Compliance ) )
@@ -14808,7 +14791,7 @@ class RightVentricle:
         self.Vol_SteadyState = ( RightHeartPumping_Diastole.EDV + RightHeartPumping_Systole.ESV ) / 2.0
         self.K = 1.0
         self.DxMax = 1.0
-        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx)
+        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx, 0.9)
 
 
 class RightAtrium:
@@ -14834,8 +14817,6 @@ class RightAtrium:
         self.Inflow = SystemicVeins.Outflow + SplanchnicVeins.Outflow
         self.Outflow = RightVentricle.Outflow
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class LeftVentricle:
     def __init__(self):
@@ -14849,7 +14830,7 @@ class LeftVentricle:
         self.Vol_SteadyState = ( LeftHeartPumping_Diastole.EDV + LeftHeartPumping_Systole.ESV ) / 2.0
         self.K = 1.0
         self.DxMax = 1.0
-        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx)
+        self.Vol = delay( self.K, self.Vol_SteadyState, self.Vol, System.Dx, 0.9)
 
 
 class VascularCompartments:
@@ -14912,8 +14893,6 @@ class SystemicArtys:
         self.Inflow = LeftVentricle.Outflow
         self.Outflow = OrganFlow.HepaticVeinFlow + OrganFlow.PeripheralFlow
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
     def PulsatilePressure_func(self):
         self.SBP = self.Pressure + ( self.KS * ( CardiacOutput.StrokeVolume / self.Compliance ) )
@@ -14952,8 +14931,6 @@ class PulmCapys:
 
         self.Inflow = PulmArty.Outflow
         self.Change = self.Inflow - self.Outflow
-        self.Vol = diffeq( self.Change, System.Dx, self.Vol)
-
 
 class SystemicVeins:
     def __init__(self):
@@ -15037,7 +15014,7 @@ class Ovaries_CorpusLuteum:
         self.Growth = CorpusLuteum_Growth.Growth
         self.Involution = CorpusLuteum_Involution.Rate
         self.Change = self.Growth - self.Involution
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
     def Wrapup_func(self):
@@ -15060,7 +15037,7 @@ class Ovaries_Follicle:
         self.Growth = Follicle_Growth.Growth
         self.Atresia = Follicle_Atresia.Rate
         self.Change = self.Growth - self.Atresia
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
     def Wrapup_func(self):
@@ -15358,7 +15335,7 @@ class Height:
         self.Height_In = None
 
     def Initialize_func(self):
-        self.Height = Values_Height.Height_cM
+        Height.Height = Values_Height.Height_cM
         self.Height_In = self.Height / 2.54
         self.Height_M = self.Height / 100.0
 
@@ -15376,7 +15353,7 @@ class AnesthesiaIVRespiratoryMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * RespiratoryMuscle_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.6)
 
 
 class AnesthesiaIVRightHeart:
@@ -15393,7 +15370,7 @@ class AnesthesiaIVRightHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * RightHeart_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.02)
 
 
 class AnesthesiaIVSkin:
@@ -15410,7 +15387,7 @@ class AnesthesiaIVSkin:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Skin_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.61)
 
 
 class AnesthesiaIVInjection:
@@ -15426,7 +15403,7 @@ class AnesthesiaIVInjection:
     def Dervs_func(self):
         self.Loss = self.K * self.Mass
         self.Change = - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 3.0)
 
 
     def InjectNow_func(self):
@@ -15453,7 +15430,7 @@ class AnesthesiaIVBone:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Bone_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 2.4)
 
 
 class AnesthesiaIV:
@@ -15512,7 +15489,7 @@ class AnesthesiaIVLeftHeart:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * LeftHeart_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.11)
 
 
 class AnesthesiaIVInfusion:
@@ -15552,7 +15529,7 @@ class AnesthesiaIVGITract:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * GITract_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.08)
 
 
 class AnesthesiaIVSkeletalMuscle:
@@ -15569,7 +15546,7 @@ class AnesthesiaIVSkeletalMuscle:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * SkeletalMuscle_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 11.1)
 
 
 class AnesthesiaIVBlood:
@@ -15586,7 +15563,7 @@ class AnesthesiaIVBlood:
         self.Gain = AnesthesiaIVInjection.Loss + AnesthesiaIVInfusion.Rate
         self.Loss = AnesthesiaIVBone.Uptake + AnesthesiaIVBrain.Uptake + AnesthesiaIVFat.Uptake + AnesthesiaIVGITract.Uptake + AnesthesiaIVKidney.Uptake + AnesthesiaIVLeftHeart.Uptake + AnesthesiaIVLiver.Uptake + AnesthesiaIVOtherTissue.Uptake + AnesthesiaIVRespiratoryMuscle.Uptake + AnesthesiaIVRightHeart.Uptake + AnesthesiaIVSkeletalMuscle.Uptake + AnesthesiaIVSkin.Uptake
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 2.16)
 
 
 class AnesthesiaIVLiver:
@@ -15612,7 +15589,7 @@ class AnesthesiaIVLiver:
         self.Uptake = ( self.conc_Arty - self.conc_Vein ) * OrganFlow.HepaticVeinFlow
         self.Degrade = self.DegradeK * self.Mass
         self.Change = self.Uptake - self.Degrade
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.6)
 
 
 class AnesthesiaIVBrain:
@@ -15639,7 +15616,7 @@ class AnesthesiaIVBrain:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Brain_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.6)
 
 
 class AnesthesiaIVKidney:
@@ -15656,7 +15633,7 @@ class AnesthesiaIVKidney:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Kidney_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.13)
 
 
 class AnesthesiaIVFat:
@@ -15673,7 +15650,7 @@ class AnesthesiaIVFat:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * Fat_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 6.4)
 
 
 class AnesthesiaIVOtherTissue:
@@ -15695,7 +15672,7 @@ class AnesthesiaIVOtherTissue:
     def Dervs_func(self):
         self.Uptake = ( AnesthesiaIVBlood.conc_Blood - self.conc_Vein ) * OtherTissue_Flow.BloodFlow
         self.Change = self.Uptake
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 2.4)
 
 
 class Autopsy:
@@ -15915,7 +15892,7 @@ class LH_AnteriorPituitary:
         self.InhibinEffect = self.InhibinEffect_curve( Inhibin.conc_Conc_IUperL )
         self.TestosteroneEffect = self.TestosteroneEffect_curve( Testosterone.conc_Conc_nMolperL )
         self.Secretion = self.BasicSecretion * self.GnRHEffect * self.EstradiolEffectDelayed * self.InhibinEffect * self.TestosteroneEffect
-        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx)
+        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx, 0.01)
 
 
 class LH:
@@ -15966,7 +15943,7 @@ class LH_Circulating:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Fat_Flow:
@@ -16112,7 +16089,7 @@ class Fat_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.025)
 
 
 class Fat_CO2:
@@ -16154,7 +16131,7 @@ class Fat_CO2:
         self.Outflow_0 = Fat_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.4)
 
 
 class Fat_Pressure:
@@ -16191,7 +16168,7 @@ class Fat_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( Fat_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class Fat_AlphaReceptors:
@@ -16285,7 +16262,7 @@ class Fat_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class Fat_Structure:
@@ -16310,7 +16287,7 @@ class Fat_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class Fat_Metabolism:
@@ -16488,7 +16465,7 @@ class Liver_CO2:
         self.Outflow_0 = ( GITract_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 ) ) + ( HepaticArty.Flow * ( self.conc_BloodHCO3 - GITract_CO2.conc_HCO3 ) )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.23)
 
 
 class Liver_AlphaReceptors:
@@ -16534,7 +16511,7 @@ class Liver_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class Liver_Size:
@@ -16690,7 +16667,7 @@ class Liver_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.014)
 
 
 class Liver_Fuel:
@@ -16759,7 +16736,7 @@ class Liver_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class KAPump:
@@ -16809,7 +16786,7 @@ class KAPool:
         self.Gain = LM_Ketoacids.Rate + KAPump.Rate
         self.Loss = Brain_Fuel.KAUsed_mGperMin + NephronKetoacids.Excretion + KADecomposition.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.0075)
 
 
 class KADecomposition:
@@ -16970,7 +16947,7 @@ class RespiratoryMuscle_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( RespiratoryMuscle_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class RespiratoryMuscle_CO2:
@@ -17012,7 +16989,7 @@ class RespiratoryMuscle_CO2:
         self.Outflow_0 = RespiratoryMuscle_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.48)
 
 
 class RespiratoryMuscle_Pressure:
@@ -17039,7 +17016,7 @@ class RespiratoryMuscle_ContractileProtein:
 
     def Dervs_func(self):
         self.Change = 0.0
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 4.2)
 
 
 class RespiratoryMuscle_Fuel:
@@ -17102,7 +17079,7 @@ class RespiratoryMuscle_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class RespiratoryMuscle_Ph:
@@ -17160,7 +17137,7 @@ class RespiratoryMuscle_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.03)
 
 
 class RespiratoryMuscle_AlphaReceptors:
@@ -17206,7 +17183,7 @@ class RespiratoryMuscle_Structure:
         self.TemperatureEffect = self.TemperatureOnStructure_curve( HeatCore.Temp_C )
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.TemperatureEffect + self.FuelEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class RespiratoryMuscle_Flow:
@@ -17306,7 +17283,7 @@ class RespiratoryMuscle_Glycogen:
         self.Metabolism_CalperMin = RespiratoryMuscle_Metabolism.AnaerobicCals * self.Availability
         self.Metabolism = self.Metabolism_CalperMin * Metabolism_Tools.CarboAnaerobic_mGperCal
         self.Change = self.MG_TO_G * ( self.Synthesis - self.Metabolism )
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.46)
 
 
 class RespiratoryMuscle_Insulin:
@@ -17319,7 +17296,7 @@ class RespiratoryMuscle_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = InsulinPool.conc_Insulin
-        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx, 0.2)
 
 
 class LM_Gluconeogenesis:
@@ -17417,7 +17394,7 @@ class LM_Insulin:
 
     def Dervs_func(self):
         self.conc_Insulin = PortalVein_Insulin.conc_Insulin
-        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx)
+        self.conc_InsulinDelayed = delay( self.K, self.conc_Insulin, self.conc_InsulinDelayed, System.Dx, 0.5)
 
 
 class LM_FattyAcids:
@@ -17464,7 +17441,7 @@ class LM_Glycerol:
         self.Synthesis = 0.0
         self.Metabolism = 0.0
         self.Change = self.Synthesis - self.Metabolism
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 5.3)
 
 
 class LM_FA_AminoAcids:
@@ -17511,7 +17488,7 @@ class LM_Lactate:
         self.Synthesis = 0.0
         self.Metabolism = 0.0
         self.Change = self.Synthesis - self.Metabolism
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 5.3)
 
 
 class LM_Glucose:
@@ -17574,7 +17551,7 @@ class LM_Glycogen:
         self.Gain = LM_Glycogenesis.Rate
         self.Loss = LM_Glycogenolysis.Rate
         self.Change = 0.001 * ( self.Gain - self.Loss )
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.0)
 
 
 class Progesterone:
@@ -17617,7 +17594,7 @@ class Progesterone:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.3)
 
 
 class FSH:
@@ -17668,7 +17645,7 @@ class FSH_Circulating:
         self.Gain = self.Secretion + ( self.PumpSetting * self.PumpSwitch )
         self.Loss = self.Degradation
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.6)
 
 
 class FSH_AnteriorPituitary:
@@ -17702,7 +17679,7 @@ class FSH_AnteriorPituitary:
         self.InhibinEffect = self.InhibinEffect_curve( Inhibin.conc_Conc_IUperL )
         self.TestosteroneEffect = self.TestosteroneEffect_curve( Testosterone.conc_Conc_nMolperL )
         self.Secretion = self.BasicSecretion * self.GnRHEffect * self.EstradiolEffectDelayed * self.InhibinEffect * self.TestosteroneEffect
-        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx)
+        self.EstradiolEffectDelayed = delay( self.K, self.EstradiolEffect, self.EstradiolEffectDelayed, System.Dx, 0.01)
 
 
 class LeptinClearance:
@@ -17754,7 +17731,7 @@ class LeptinPool:
         self.Gain = LeptinSecretion.Rate + LeptinPump.Rate
         self.Loss = LeptinClearance.Rate
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 1.2)
 
 
 class LeptinSecretion:
@@ -17811,7 +17788,7 @@ class PlasmaProtein:
         self.Gain = self.Synthesis + LymphProtein.Rate + Transfusion.ProteinRate + PeritoneumProtein.Loss + IVDrip.ProteinRate
         self.Loss = self.Degradation + CapillaryProtein.Rate + Hemorrhage.ProteinRate + PeritoneumProtein.Gain + CD_Protein.Outflow
         self.Change = self.Gain - self.Loss
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 2.1)
 
 
 class CircyProtein:
@@ -17864,7 +17841,7 @@ class CO2Veins:
         else:
             self.conc_HCO3_SteadyState = 0.0
 
-        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx)
+        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx, 0.000256)
 
 
 class Blood_BaseToGas:
@@ -17914,7 +17891,7 @@ class CO2Artys:
         else:
             self.conc_HCO3_SteadyState = 0.0
 
-        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx)
+        self.conc_HCO3 = delay( self.K, self.conc_HCO3_SteadyState, self.conc_HCO3, System.Dx, 0.00024)
 
 
 class CO2:
@@ -18087,7 +18064,7 @@ class CNSTrophicFactor:
 
     def Dervs_func(self):
         self.EffectChange = 0.0
-        self.Effect = diffeq( self.EffectChange, System.Dx, self.Effect)
+        self.Effect = diffeq( self.EffectChange, System.Dx, self.Effect, 0.01)
 
 
 class Chemoreceptors:
@@ -18261,7 +18238,7 @@ class LowPressureReceptors:
             self.NA = self.Level
         elif True:
             self.NA = self.PressureChangeOnNA_curve( self.PressureChange )
-        self.AdaptedPressure = delay( self.RateConst, self.AvePressure, self.AdaptedPressure, System.Dx)
+        self.AdaptedPressure = delay( self.RateConst, self.AvePressure, self.AdaptedPressure, System.Dx, 0.06)
 
 
 class Baroreflex:
@@ -18293,7 +18270,7 @@ class Baroreflex:
 
     def Dervs_func(self):
         self.SinusPressure = CarotidSinus.Pressure
-        self.AdaptedPressure = delay( self.RateConst, self.SinusPressure, self.AdaptedPressure, System.Dx)
+        self.AdaptedPressure = delay( self.RateConst, self.SinusPressure, self.AdaptedPressure, System.Dx, 0.97)
 
 
 class SympsChemo:
@@ -18345,7 +18322,7 @@ class ChemoreceptorAcclimation:
 
     def Calc_func(self):
         self.SteadyState = self.SteadyState_curve( Chemoreceptors.BasicFiringRate )
-        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.SteadyState, self.Effect, System.Dx, 0.1)
 
 
 class VagusNerve:
@@ -18388,7 +18365,7 @@ class OtherTissue_Vasculature:
         else:
             self.Stimulus = self.PO2OnStimulus_curve( OtherTissue_Flow.PO2 )
 
-        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx)
+        self.Effect = delay( self.K, self.Stimulus, self.Effect, System.Dx, None)
 
 
 class OtherTissue_Function:
@@ -18491,7 +18468,7 @@ class OtherTissue_Fuel:
         self.K = 0.5
         self.DxMax = 1.0
         self.FractUse = self.MinimumFractionalDelivery
-        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx)
+        self.FractUseDelay = delay( self.K, self.FractUse, self.FractUseDelay, System.Dx, 0.01)
 
 
 class OtherTissue_Size:
@@ -18636,7 +18613,7 @@ class OtherTissue_Lactate:
         self.Outflux_0 = self.DC * ( self.conc_Lac_ - LacPool.conc_Lac_ )
         self.Outflux = ( self.Alpha * self.Outflux_0 ) + ( ( 1 - self.Alpha ) * ( self.Made + self.Used ) )
         self.Change = self.Made - self.Used - self.Outflux
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.032)
 
 
 class OtherTissue_Metabolism:
@@ -18703,7 +18680,7 @@ class OtherTissue_CO2:
         self.Outflow_0 = OtherTissue_Flow.BloodFlow * ( self.conc_BloodHCO3 - CO2Artys.conc_HCO3 )
         self.OutflowBase = ( self.Alpha * self.Outflow_0 ) + ( ( 1 - self.Alpha ) * self.InflowBase )
         self.Change = self.InflowBase - self.OutflowBase
-        self.Mass = diffeq( self.Change, System.Dx, self.Mass)
+        self.Mass = diffeq( self.Change, System.Dx, self.Mass, 0.51)
 
 
 class OtherTissue_Flow:
@@ -18791,7 +18768,7 @@ class OtherTissue_Structure:
         self.TemperatureEffect = self.TemperatureFactor * self.TemperatureMaximum
         self.F1 = 0.0
         self.F2 = self.PhEffect + self.FuelEffect + self.TemperatureEffect
-        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect)
+        self.Effect = backwardeuler( self.F1, self.F2, System.Dx, self.Effect, None)
 
 
 class IVDrip:
@@ -18836,7 +18813,7 @@ class IVDrip:
 
     def Dervs_func(self):
         self.H2OChange = self.H2ORate
-        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O)
+        self.TotalH2O = diffeq( self.H2OChange, System.Dx, self.TotalH2O, None)
 
 
     def Reset_func(self):
@@ -19093,9 +19070,9 @@ class Descriptors_Gender:
     def __init__(self):
         self.MALE = 0
         self.FEMALE = 1
-        self.IsMale = True
-        self.IsFemale = False
-        self.Value = 0
+        self.IsMale = False #changed from Hummod default of True
+        self.IsFemale = True #changed from Hummod default of False
+        self.Value = 1 #changed from Hummod default of 0
 
     def Calc_func(self):
         pass
@@ -20912,11 +20889,151 @@ Start_ExtracellularSulphate = Start_ExtracellularSulphate()
 Start_ExtracellularChloride = Start_ExtracellularChloride()
 Start_CellularPotassium = Start_CellularPotassium()
 Start_Electrolytes = Start_Electrolytes()
-def step():
-    Structure.Context_func()
-    Structure.Parms_func()
+
+components = {"System":System, "Structure":Structure, "ADHPump":ADHPump, "ADHPool":ADHPool, "ADHSecretion":ADHSecretion, "ADHClearance":ADHClearance, "ADH":ADH, "ADHSynthesis":ADHSynthesis, "ADHFastMass":ADHFastMass, "ADHSlowMass":ADHSlowMass, "ICFV":ICFV, "ECFV":ECFV, "H2O":H2O, "ExternalH2O":ExternalH2O, "BodyH2O":BodyH2O, "MetabolicH2O":MetabolicH2O, "RightHeartPumping_Pumping":RightHeartPumping_Pumping, "RightHeartPumping_Diastole":RightHeartPumping_Diastole, "RightHeartPumping_Systole":RightHeartPumping_Systole, "RightHeartPumping":RightHeartPumping, "RightHeartPumping_Valves":RightHeartPumping_Valves, "GlucosePump":GlucosePump, "Glucose":Glucose, "GlucosePool":GlucosePool, "GlucoseDecomposition":GlucoseDecomposition, "ThyroidClearance":ThyroidClearance, "ThyroidPump":ThyroidPump, "ThyroidTSH":ThyroidTSH, "ThyroidGland":ThyroidGland, "ThyroidPool":ThyroidPool, "ThyroidSecretion":ThyroidSecretion, "HgbConc":HgbConc, "HgbTissue":HgbTissue, "HgbProps":HgbProps, "Hemoglobin":Hemoglobin, "HgbLung":HgbLung, "Skin_Size":Skin_Size, "Skin_Function":Skin_Function, "Skin_Lactate":Skin_Lactate, "Skin_Pressure":Skin_Pressure, "Skin_Vasculature":Skin_Vasculature, "Skin_Fuel":Skin_Fuel, "Skin_Metabolism":Skin_Metabolism, "Skin_CO2":Skin_CO2, "Skin_Flow":Skin_Flow, "Skin_Structure":Skin_Structure, "Skin_AlphaReceptors":Skin_AlphaReceptors, "Skin":Skin, "Skin_Ph":Skin_Ph, "CellSID":CellSID, "Electrolytes":Electrolytes, "PO4Pool":PO4Pool, "PO4":PO4, "Na":Na, "NaPool":NaPool, "SO4":SO4, "SO4Pool":SO4Pool, "ClPool":ClPool, "Cl":Cl, "KAldoEffect":KAldoEffect, "K":K, "KFluxToPool":KFluxToPool, "KCell":KCell, "KFluxToCell":KFluxToCell, "KPool":KPool, "KMembrane":KMembrane, "HeatStorage":HeatStorage, "HeatMetabolism":HeatMetabolism, "HeatSweating":HeatSweating, "HeatSkeletalMuscle":HeatSkeletalMuscle, "HeatIVDrip":HeatIVDrip, "TempTools":TempTools, "HeatRadiation":HeatRadiation, "Convulsing":Convulsing, "HeatSkin":HeatSkin, "HeatShivering":HeatShivering, "HeatInsensibleLung":HeatInsensibleLung, "HeatCore":HeatCore, "HeatInsensibleSkin":HeatInsensibleSkin, "HeatConduction":HeatConduction, "HeatSweatEvaporation":HeatSweatEvaporation, "HeatTransfusion":HeatTransfusion, "HeatSweatConvection":HeatSweatConvection, "HeatDialyzer":HeatDialyzer, "HeatHemorrhage":HeatHemorrhage, "Heat":Heat, "SpecificHeat":SpecificHeat, "HeatUrine":HeatUrine, "IVEpinephrineInjection":IVEpinephrineInjection, "CellProtein":CellProtein, "LungArtyO2":LungArtyO2, "LungArtyCO2":LungArtyCO2, "RightHemithorax":RightHemithorax, "ExcessLungWater":ExcessLungWater, "Thorax":Thorax, "LungO2":LungO2, "Bronchi":Bronchi, "GasExchangeRatio":GasExchangeRatio, "PulmonaryMembrane":PulmonaryMembrane, "Ventilator":Ventilator, "LungVeinCO2":LungVeinCO2, "Breathing":Breathing, "LeftHemithorax":LeftHemithorax, "LungCO2":LungCO2, "Lungs":Lungs, "LungBloodFlow":LungBloodFlow, "LungVeinO2":LungVeinO2, "BTPS_To_STPD":BTPS_To_STPD, "GasTools":GasTools, "STPD_To_BTPS":STPD_To_BTPS, "Posture":Posture, "PostureControl":PostureControl, "A2Pool":A2Pool, "ReninSynthesis":ReninSynthesis, "ReninClearance":ReninClearance, "ReninFree":ReninFree, "A2Pump":A2Pump, "ReninGranules":ReninGranules, "ReninPool":ReninPool, "ReninSecretion":ReninSecretion, "ReninTumor":ReninTumor, "Renin":Renin, "LegMusclePump":LegMusclePump, "Gravity":Gravity, "FattyAcid":FattyAcid, "FAPool":FAPool, "FADecomposition":FADecomposition, "Pericardium":Pericardium, "Pericardium_Drain":Pericardium_Drain, "Pericardium_Cavity":Pericardium_Cavity, "Pericardium_TMP":Pericardium_TMP, "Pericardium_Hemorrhage":Pericardium_Hemorrhage, "Pericardium_V0":Pericardium_V0, "SkeletalMuscle_ContractileProtein":SkeletalMuscle_ContractileProtein, "SkeletalMuscle_Ph":SkeletalMuscle_Ph, "SkeletalMuscle_Fuel":SkeletalMuscle_Fuel, "SkeletalMuscle":SkeletalMuscle, "SkeletalMuscle_Structure":SkeletalMuscle_Structure, "SkeletalMuscle_Pressure":SkeletalMuscle_Pressure, "SkeletalMuscle_Work":SkeletalMuscle_Work, "SkeletalMuscle_Lactate":SkeletalMuscle_Lactate, "SkeletalMuscle_Metabolism":SkeletalMuscle_Metabolism, "SkeletalMuscle_Size":SkeletalMuscle_Size, "SkeletalMuscle_Metaboreflex":SkeletalMuscle_Metaboreflex, "SkeletalMuscle_Function":SkeletalMuscle_Function, "SkeletalMuscle_AlphaReceptors":SkeletalMuscle_AlphaReceptors, "SkeletalMuscle_MusclePumping":SkeletalMuscle_MusclePumping, "SkeletalMuscle_CO2":SkeletalMuscle_CO2, "SkeletalMuscle_MetabolicVasodilation":SkeletalMuscle_MetabolicVasodilation, "SkeletalMuscle_Flow":SkeletalMuscle_Flow, "SkeletalMuscle_Vasculature":SkeletalMuscle_Vasculature, "SkeletalMuscle_Glycogen":SkeletalMuscle_Glycogen, "SkeletalMuscle_Insulin":SkeletalMuscle_Insulin, "InsulinInjection":InsulinInjection, "hCG":hCG, "Estradiol":Estradiol, "DailyPlannerControl":DailyPlannerControl, "DailyPlanner":DailyPlanner, "DailyPlannerSchedule":DailyPlannerSchedule, "TiltTable":TiltTable, "Heart_Tachyarrhythmia":Heart_Tachyarrhythmia, "Heart_VFib":Heart_VFib, "Heart_Asystole":Heart_Asystole, "SANode_Rate":SANode_Rate, "LeftHeart_Pain":LeftHeart_Pain, "Heart_Rhythm":Heart_Rhythm, "Heart_Ventricles":Heart_Ventricles, "Heart_Rate":Heart_Rate, "Heart_Intervals":Heart_Intervals, "Heart_Pacemaker":Heart_Pacemaker, "RightHeart_Pain":RightHeart_Pain, "Heart":Heart, "SANode_BetaReceptors":SANode_BetaReceptors, "Heart_ECG":Heart_ECG, "Heart_Defibrillator":Heart_Defibrillator, "Heart_Pain":Heart_Pain, "CPR_Lungs":CPR_Lungs, "CPR_Heart":CPR_Heart, "CPR":CPR, "Drugs":Drugs, "MidodrineSingleDose":MidodrineSingleDose, "MidodrinePool":MidodrinePool, "MidodrineGILumen":MidodrineGILumen, "MidodrineDailyDose":MidodrineDailyDose, "DesglymidodrinePool":DesglymidodrinePool, "DesglymidodrineKidney":DesglymidodrineKidney, "Midodrine":Midodrine, "DigoxinKidney":DigoxinKidney, "Digoxin":Digoxin, "DigoxinSingleDose":DigoxinSingleDose, "DigoxinPool":DigoxinPool, "DigoxinDailyDose":DigoxinDailyDose, "DigoxinGILumen":DigoxinGILumen, "FurosemideSingleDose":FurosemideSingleDose, "FurosemideKidney":FurosemideKidney, "FurosemidePool":FurosemidePool, "Furosemide":Furosemide, "ThiazideKidney":ThiazideKidney, "ThiazideGILumen":ThiazideGILumen, "Chlorothiazide":Chlorothiazide, "ThiazideDailyDose":ThiazideDailyDose, "ThiazidePool":ThiazidePool, "ThiazideSingleDose":ThiazideSingleDose, "CoronarySinus":CoronarySinus, "CardiacOutput":CardiacOutput, "Viscosity":Viscosity, "CarotidSinus":CarotidSinus, "VeinsVol":VeinsVol, "Circulation":Circulation, "OrganFlow":OrganFlow, "ArtysVol":ArtysVol, "CircyManager":CircyManager, "HepaticArty":HepaticArty, "PeripheralResistance":PeripheralResistance, "GILumen":GILumen, "GILumenSodium":GILumenSodium, "GILumenPotassium":GILumenPotassium, "GILumenChloride":GILumenChloride, "GILumenElectrolytes":GILumenElectrolytes, "GILumenVolume":GILumenVolume, "GILumenH2O":GILumenH2O, "GILumenTemperature":GILumenTemperature, "GILumenDiarrhea":GILumenDiarrhea, "GILumenVomitus":GILumenVomitus, "GILumenOther":GILumenOther, "GILumenCarbohydrates":GILumenCarbohydrates, "GILumenFood":GILumenFood, "GILumenProtein":GILumenProtein, "GILumenFat":GILumenFat, "GITract_Pressure":GITract_Pressure, "GITract":GITract, "GITract_Structure":GITract_Structure, "GITract_Metabolism":GITract_Metabolism, "GITract_CO2":GITract_CO2, "GITract_Fuel":GITract_Fuel, "GITract_Ph":GITract_Ph, "GITract_Function":GITract_Function, "GITract_Size":GITract_Size, "GITract_AlphaReceptors":GITract_AlphaReceptors, "GITract_Vasculature":GITract_Vasculature, "GITract_Flow":GITract_Flow, "GITract_Lactate":GITract_Lactate, "AldoSecretion":AldoSecretion, "AldoDisposal":AldoDisposal, "AldoPool":AldoPool, "AldoTumor":AldoTumor, "AldoPump":AldoPump, "Aldosterone":Aldosterone, "PO2Veins":PO2Veins, "O2Total":O2Total, "O2Artys":O2Artys, "PO2Artys":PO2Artys, "O2Veins":O2Veins, "O2":O2, "SweatDuct":SweatDuct, "Sweat":Sweat, "SweatGland":SweatGland, "SweatFuel":SweatFuel, "SweatAcclimation":SweatAcclimation, "Kidney_Alpha":Kidney_Alpha, "Kidney_Size":Kidney_Size, "Kidney_Lactate":Kidney_Lactate, "Kidney_O2":Kidney_O2, "Kidney_MyogenicDelay":Kidney_MyogenicDelay, "Kidney_Fuel":Kidney_Fuel, "Kidney":Kidney, "Kidney_Ph":Kidney_Ph, "Kidney_Function":Kidney_Function, "Kidney_AfferentArtery":Kidney_AfferentArtery, "Kidney_CO2":Kidney_CO2, "Kidney_Structure":Kidney_Structure, "Kidney_Metabolism":Kidney_Metabolism, "Kidney_BetaReceptors":Kidney_BetaReceptors, "Kidney_AlphaReceptors":Kidney_AlphaReceptors, "Kidney_EfferentArtery":Kidney_EfferentArtery, "Kidney_Pressure":Kidney_Pressure, "Kidney_ArcuateArtery":Kidney_ArcuateArtery, "Kidney_NephronCount":Kidney_NephronCount, "Kidney_Flow":Kidney_Flow, "Kidney_Myogenic":Kidney_Myogenic, "AnesthesiaGasBone":AnesthesiaGasBone, "AnesthesiaGas":AnesthesiaGas, "AnesthesiaGasBrain":AnesthesiaGasBrain, "AnesthesiaGasLiver":AnesthesiaGasLiver, "AnesthesiaGasGITract":AnesthesiaGasGITract, "AnesthesiaGasSkeletalMuscle":AnesthesiaGasSkeletalMuscle, "AnesthesiaGasFat":AnesthesiaGasFat, "AnesthesiaGasRespiratoryMuscle":AnesthesiaGasRespiratoryMuscle, "AnesthesiaGasVein":AnesthesiaGasVein, "AnesthesiaGasSkin":AnesthesiaGasSkin, "AnesthesiaGasLeftHeart":AnesthesiaGasLeftHeart, "AnesthesiaGasLung":AnesthesiaGasLung, "AnesthesiaGasSolubility":AnesthesiaGasSolubility, "AnesthesiaGasArty":AnesthesiaGasArty, "AnesthesiaGasOtherTissue":AnesthesiaGasOtherTissue, "AnesthesiaGasKidney":AnesthesiaGasKidney, "AnesthesiaGasRightHeart":AnesthesiaGasRightHeart, "CO":CO, "PhCells":PhCells, "PhBlood":PhBlood, "BloodPh":BloodPh, "PhGeneral":PhGeneral, "AcidBase":AcidBase, "InsulinSecretion":InsulinSecretion, "InsulinSynthesis":InsulinSynthesis, "InsulinPump":InsulinPump, "InsulinClearance":InsulinClearance, "InsulinPool":InsulinPool, "Insulin":Insulin, "InsulinStorage":InsulinStorage, "LeftHeartPumping_Valves":LeftHeartPumping_Valves, "LeftHeartPumping_Systole":LeftHeartPumping_Systole, "LeftHeartPumping_Diastole":LeftHeartPumping_Diastole, "LeftHeartPumping_Pumping":LeftHeartPumping_Pumping, "LeftHeartPumping":LeftHeartPumping, "Bone_Lactate":Bone_Lactate, "Bone_Size":Bone_Size, "Bone_Metabolism":Bone_Metabolism, "Bone_CO2":Bone_CO2, "Bone_Fuel":Bone_Fuel, "Bone_Vasculature":Bone_Vasculature, "Bone_Structure":Bone_Structure, "Bone":Bone, "Bone_Function":Bone_Function, "Bone_Mineral":Bone_Mineral, "Bone_Flow":Bone_Flow, "Bone_Ph":Bone_Ph, "Bone_Pressure":Bone_Pressure, "Bone_AlphaReceptors":Bone_AlphaReceptors, "TissueH2O":TissueH2O, "UT_H2O":UT_H2O, "MT_H2O":MT_H2O, "LT_H2O":LT_H2O, "MT_CapillaryProtein":MT_CapillaryProtein, "CapillaryProtein":CapillaryProtein, "LT_CapillaryProtein":LT_CapillaryProtein, "UT_CapillaryProtein":UT_CapillaryProtein, "LT_LymphWater":LT_LymphWater, "MT_LymphWater":MT_LymphWater, "LymphWater":LymphWater, "UT_LymphWater":UT_LymphWater, "CellH2O":CellH2O, "UT_LymphProtein":UT_LymphProtein, "MT_LymphProtein":MT_LymphProtein, "LT_LymphProtein":LT_LymphProtein, "LymphProtein":LymphProtein, "LT_InterstitialWater":LT_InterstitialWater, "MT_InterstitialWater":MT_InterstitialWater, "UT_InterstitialWater":UT_InterstitialWater, "InterstitialWater":InterstitialWater, "MT_InterstitialProtein":MT_InterstitialProtein, "UT_InterstitialProtein":UT_InterstitialProtein, "LT_InterstitialProtein":LT_InterstitialProtein, "InterstitialProtein":InterstitialProtein, "UT_CapillaryWater":UT_CapillaryWater, "CapillaryWater":CapillaryWater, "LT_CapillaryWater":LT_CapillaryWater, "MT_CapillaryWater":MT_CapillaryWater, "PeritoneumSpace":PeritoneumSpace, "Peritoneum":Peritoneum, "PeritoneumProtein":PeritoneumProtein, "GlycerolPool":GlycerolPool, "Glycerol":Glycerol, "Metabolism_RespiratoryQuotient":Metabolism_RespiratoryQuotient, "Metabolism_MetabolicRate":Metabolism_MetabolicRate, "Metabolism_Tools":Metabolism_Tools, "Thyroid":Thyroid, "Metabolism":Metabolism, "Metabolism_FattyAcid":Metabolism_FattyAcid, "Metabolism_Glucose":Metabolism_Glucose, "Metabolism_FuelUse":Metabolism_FuelUse, "Metabolism_CaloriesUsed":Metabolism_CaloriesUsed, "OsmCell":OsmCell, "Osmoles":Osmoles, "OsmBody":OsmBody, "OsmECFV":OsmECFV, "conc_EPODelay":conc_EPODelay, "RBCSecretion":RBCSecretion, "PlasmaVol":PlasmaVol, "BloodVol":BloodVol, "BloodVolume":BloodVolume, "RBCVol":RBCVol, "RBCH2O":RBCH2O, "RBCClearance":RBCClearance, "RBCSolids":RBCSolids, "TriglycerideHydrolysis":TriglycerideHydrolysis, "TriglyceridePool":TriglyceridePool, "Triglyceride":Triglyceride, "TriglycerideDecomposition":TriglycerideDecomposition, "Organs_AlphaReceptors":Organs_AlphaReceptors, "Organs_Ph":Organs_Ph, "Organs_Flow":Organs_Flow, "Organs_ScaleH2O":Organs_ScaleH2O, "Organs_ScaleConductance":Organs_ScaleConductance, "Organs_Fuel":Organs_Fuel, "Organs_Pressure":Organs_Pressure, "Organs":Organs, "Organs_Lactate":Organs_Lactate, "Organs_Vasculature":Organs_Vasculature, "Organs_Function":Organs_Function, "Organs_Structure":Organs_Structure, "Organs_ScaleCals":Organs_ScaleCals, "Organs_Metabolism":Organs_Metabolism, "Organs_CO2":Organs_CO2, "Organs_Size":Organs_Size, "Organs_BetaReceptors":Organs_BetaReceptors, "DietGoalElectrolytes":DietGoalElectrolytes, "DietIntakeElectrolytes":DietIntakeElectrolytes, "DietThirst":DietThirst, "DietFeeding":DietFeeding, "DietGoalH2O":DietGoalH2O, "DietIntakeNutrition":DietIntakeNutrition, "DietGoalNutrition":DietGoalNutrition, "Diet":Diet, "DietAppetite":DietAppetite, "DietIntakeH2O":DietIntakeH2O, "RightHeart_Pressure":RightHeart_Pressure, "RightHeart_Vasculature":RightHeart_Vasculature, "RightHeart_Work":RightHeart_Work, "RightHeart_Size":RightHeart_Size, "RightHeart_Function":RightHeart_Function, "RightHeart_Fuel":RightHeart_Fuel, "RightHeart_CO2":RightHeart_CO2, "RightHeart_AlphaReceptors":RightHeart_AlphaReceptors, "RightHeart_ContractileProtein":RightHeart_ContractileProtein, "RightHeart_Ph":RightHeart_Ph, "RightHeart_Structure":RightHeart_Structure, "RightHeart_Metabolism":RightHeart_Metabolism, "RightHeart":RightHeart, "RightHeart_BetaReceptors":RightHeart_BetaReceptors, "RightHeart_Infarction":RightHeart_Infarction, "RightHeart_Flow":RightHeart_Flow, "RightHeart_Lactate":RightHeart_Lactate, "AminoAcid":AminoAcid, "AAPool":AAPool, "GnRH":GnRH, "Status":Status, "LipidDeposits":LipidDeposits, "LipidDeposits_Uptake":LipidDeposits_Uptake, "LipidDeposits_Release":LipidDeposits_Release, "OralH2OGlucoseLoad":OralH2OGlucoseLoad, "BVSeq":BVSeq, "SequesteredBlood":SequesteredBlood, "BVSeqVeins":BVSeqVeins, "BVSeqArtys":BVSeqArtys, "CardiacCycle":CardiacCycle, "DiastolicPressure":DiastolicPressure, "HypothalamusSweatingAcclimation":HypothalamusSweatingAcclimation, "HypothalamusShivering":HypothalamusShivering, "Hypothalamus":Hypothalamus, "HypothalamusTSH":HypothalamusTSH, "HypothalamusSkinFlow":HypothalamusSkinFlow, "HypothalamusSweating":HypothalamusSweating, "HypothalamusShiveringAcclimation":HypothalamusShiveringAcclimation, "RespiratoryCenter_Exercise":RespiratoryCenter_Exercise, "RespiratoryCenter_Metaboreflex":RespiratoryCenter_Metaboreflex, "RespiratoryCenter":RespiratoryCenter, "RespiratoryCenter_Chemical":RespiratoryCenter_Chemical, "RespiratoryCenter_Radiation":RespiratoryCenter_Radiation, "RespiratoryCenter_Output":RespiratoryCenter_Output, "RespiratoryCenter_Integration":RespiratoryCenter_Integration, "GlucagonSecretion":GlucagonSecretion, "Glucagon":Glucagon, "GlucagonPool":GlucagonPool, "GlucagonClearance":GlucagonClearance, "FractReab":FractReab, "Nephrons":Nephrons, "NephronANP":NephronANP, "NephronIFP":NephronIFP, "NephronGlucose":NephronGlucose, "NephronAldo":NephronAldo, "VasaRecta":VasaRecta, "NephronADH":NephronADH, "NephronKetoacids":NephronKetoacids, "GlomerulusKetoacid":GlomerulusKetoacid, "GlomerulusBicarbonate":GlomerulusBicarbonate, "GlomerulusUrea":GlomerulusUrea, "GlomerulusChloride":GlomerulusChloride, "GlomerulusSulphate":GlomerulusSulphate, "GlomerulusSodium":GlomerulusSodium, "Glomerulus":Glomerulus, "GlomerulusCreatinine":GlomerulusCreatinine, "GlomerulusGlucose":GlomerulusGlucose, "GlomerulusPhosphate":GlomerulusPhosphate, "GlomerulusProtein":GlomerulusProtein, "GlomerulusFiltrate":GlomerulusFiltrate, "TGF_Renin":TGF_Renin, "MD_Na":MD_Na, "MaculaDensa":MaculaDensa, "TGF_Vascular":TGF_Vascular, "MedullaUrea":MedullaUrea, "MedullaNa":MedullaNa, "Medulla":Medulla, "PT_Na":PT_Na, "PT_H2O":PT_H2O, "PT_NH3":PT_NH3, "ProximalTubule":ProximalTubule, "CD_Urea":CD_Urea, "CD_K":CD_K, "CD_NH4":CD_NH4, "CD_PO4":CD_PO4, "CD_Glucose":CD_Glucose, "CD_Cl":CD_Cl, "CD_KA":CD_KA, "CD_HCO3":CD_HCO3, "CD_SO4":CD_SO4, "CD_Protein":CD_Protein, "CD_Creatinine":CD_Creatinine, "CD_H2OChannels":CD_H2OChannels, "CD_Na":CD_Na, "CollectingDuct":CollectingDuct, "CD_H2O":CD_H2O, "DT_Na":DT_Na, "DT_K":DT_K, "DT_H2O":DT_H2O, "DistalTubule":DistalTubule, "LoopOfHenle":LoopOfHenle, "LH_":LH_, "LH_Na":LH_Na, "LH_H2O":LH_H2O, "Testosterone":Testosterone, "HeartValves":HeartValves, "TricuspidValve_Regurgitation":TricuspidValve_Regurgitation, "TricuspidValve":TricuspidValve, "TricuspidValve_Stenosis":TricuspidValve_Stenosis, "MitralValve":MitralValve, "MitralValve_Regurgitation":MitralValve_Regurgitation, "MitralValve_Stenosis":MitralValve_Stenosis, "AorticValve":AorticValve, "AorticValve_Regurgitation":AorticValve_Regurgitation, "AorticValve_Stenosis":AorticValve_Stenosis, "PulmonicValve_Stenosis":PulmonicValve_Stenosis, "PulmonicValve_Regurgitation":PulmonicValve_Regurgitation, "PulmonicValve":PulmonicValve, "DialyzerActivity":DialyzerActivity, "DialysateComposition":DialysateComposition, "DialysisShunt":DialysisShunt, "DialyzerControl":DialyzerControl, "Hemodialysis":Hemodialysis, "ANP":ANP, "ANPSecretion":ANPSecretion, "ANPPool":ANPPool, "ANPClearance":ANPClearance, "ANPPump":ANPPump, "BloodIons":BloodIons, "CreatininePool":CreatininePool, "Creatinine":Creatinine, "Anesthesia":Anesthesia, "NoAnesthesia":NoAnesthesia, "Transfusion":Transfusion, "Bladder":Bladder, "BladderChloride":BladderChloride, "BladderSulphate":BladderSulphate, "BladderKetoacid":BladderKetoacid, "BladderCreatinine":BladderCreatinine, "BladderGlucose":BladderGlucose, "BladderUrea":BladderUrea, "BladderPotassium":BladderPotassium, "BladderPhosphate":BladderPhosphate, "BladderSodium":BladderSodium, "BladderProtein":BladderProtein, "BladderBicarbonate":BladderBicarbonate, "BladderAmmonia":BladderAmmonia, "BladderVolume":BladderVolume, "Hemorrhage":Hemorrhage, "LeftHeart_Lactate":LeftHeart_Lactate, "LeftHeart_Metabolism":LeftHeart_Metabolism, "LeftHeart_Infarction":LeftHeart_Infarction, "LeftHeart_Flow":LeftHeart_Flow, "LeftHeart_Function":LeftHeart_Function, "LeftHeart_Size":LeftHeart_Size, "LeftHeart_Work":LeftHeart_Work, "LeftHeart_AlphaReceptors":LeftHeart_AlphaReceptors, "LeftHeart_Vasculature":LeftHeart_Vasculature, "LeftHeart_Ph":LeftHeart_Ph, "LeftHeart":LeftHeart, "LeftHeart_Pressure":LeftHeart_Pressure, "LeftHeart_BetaReceptors":LeftHeart_BetaReceptors, "LeftHeart_CO2":LeftHeart_CO2, "LeftHeart_Structure":LeftHeart_Structure, "LeftHeart_Fuel":LeftHeart_Fuel, "LeftHeart_ContractileProtein":LeftHeart_ContractileProtein, "Exercise_Treadmill":Exercise_Treadmill, "Exercise_MusclePump":Exercise_MusclePump, "Exercise_Bike":Exercise_Bike, "Exercise_Motivation":Exercise_Motivation, "Exercise_Metabolism":Exercise_Metabolism, "Exercise":Exercise, "Exercise_Control":Exercise_Control, "EpiClearance":EpiClearance, "AlphaBlockade":AlphaBlockade, "NESecretion":NESecretion, "NEPump":NEPump, "Pheochromocytoma":Pheochromocytoma, "NEPool":NEPool, "EpiPump":EpiPump, "AlphaPool":AlphaPool, "BetaPool":BetaPool, "Catechols":Catechols, "EpiPool":EpiPool, "NEClearance":NEClearance, "EpiSecretion":EpiSecretion, "BetaBlockade":BetaBlockade, "Uterus":Uterus, "Testes_Inhibin":Testes_Inhibin, "Testes_Estradiol":Testes_Estradiol, "Testes":Testes, "Testes_Testosterone":Testes_Testosterone, "Testes_Progesterone":Testes_Progesterone, "Inhibin":Inhibin, "UreaPool":UreaPool, "Urea":Urea, "UreaCell":UreaCell, "EPOClearance":EPOClearance, "EPOPump":EPOPump, "EPOPool":EPOPool, "EPO":EPO, "EPOSecretion":EPOSecretion, "Lactate":Lactate, "LacPool":LacPool, "Infusions":Infusions, "LowerExternalPressure":LowerExternalPressure, "SplanchnicCirculation":SplanchnicCirculation, "HepaticVein":HepaticVein, "HepaticArtery":HepaticArtery, "PortalVein_Glucose":PortalVein_Glucose, "PortalVein":PortalVein, "PortalVein_Insulin":PortalVein_Insulin, "PortalVein_FattyAcid":PortalVein_FattyAcid, "PortalVein_Glucagon":PortalVein_Glucagon, "Wind":Wind, "Clothes":Clothes, "Altitude":Altitude, "RelativeHumidity":RelativeHumidity, "Environment":Environment, "AmbientTemperature":AmbientTemperature, "Barometer":Barometer, "EquivalentAltitude":EquivalentAltitude, "Symptoms":Symptoms, "Brain":Brain, "Brain_Ph":Brain_Ph, "Brain_Pressure":Brain_Pressure, "Brain_Flow":Brain_Flow, "Seizure":Seizure, "Brain_Function":Brain_Function, "Brain_CO2":Brain_CO2, "Brain_Fuel":Brain_Fuel, "Brain_Lactate":Brain_Lactate, "Brain_Metabolism":Brain_Metabolism, "Brain_Structure":Brain_Structure, "GlasgowComaScale":GlasgowComaScale, "Brain_Vasculature":Brain_Vasculature, "Brain_Size":Brain_Size, "BrainInsult":BrainInsult, "BrainInsult_PO2":BrainInsult_PO2, "BrainInsult_Temperature":BrainInsult_Temperature, "BrainInsult_Ph":BrainInsult_Ph, "BrainInsult_Structure":BrainInsult_Structure, "BrainInsult_Fuel":BrainInsult_Fuel, "BrainInsult_Highconc_Osm":BrainInsult_Highconc_Osm, "BrainInsult_Lowconc_Osm":BrainInsult_Lowconc_Osm, "AirSupply_PressureChamber":AirSupply_PressureChamber, "AirSupply":AirSupply, "AirSupply_GasTanks":AirSupply_GasTanks, "AirSupply_InspiredAir":AirSupply_InspiredAir, "LeftAtrium":LeftAtrium, "SplanchnicVeins":SplanchnicVeins, "PulmVeins":PulmVeins, "PulmArty":PulmArty, "RightVentricle":RightVentricle, "RightAtrium":RightAtrium, "LeftVentricle":LeftVentricle, "VascularCompartments":VascularCompartments, "SystemicArtys":SystemicArtys, "PulmCapys":PulmCapys, "SystemicVeins":SystemicVeins, "Inhibin_B":Inhibin_B, "Follicle_Estradiol":Follicle_Estradiol, "Inhibin_A":Inhibin_A, "Ovaries_CorpusLuteum":Ovaries_CorpusLuteum, "Ovaries_Follicle":Ovaries_Follicle, "CorpusLuteum_Involution":CorpusLuteum_Involution, "Follicle_Atresia":Follicle_Atresia, "CorpusLuteum_Estradiol":CorpusLuteum_Estradiol, "Ovaries":Ovaries, "Ovaries_Estradiol":Ovaries_Estradiol, "Ovaries_Inhibin":Ovaries_Inhibin, "Follicle_Growth":Follicle_Growth, "CorpusLuteum_Growth":CorpusLuteum_Growth, "Ovaries_Ovulation":Ovaries_Ovulation, "Ovaries_Testosterone":Ovaries_Testosterone, "Ovaries_Progesterone":Ovaries_Progesterone, "SurfaceArea":SurfaceArea, "BMI":BMI, "Age":Age, "Gender":Gender, "Morphology":Morphology, "Weight":Weight, "Weight_Fluids":Weight_Fluids, "Height":Height, "AnesthesiaIVRespiratoryMuscle":AnesthesiaIVRespiratoryMuscle, "AnesthesiaIVRightHeart":AnesthesiaIVRightHeart, "AnesthesiaIVSkin":AnesthesiaIVSkin, "AnesthesiaIVInjection":AnesthesiaIVInjection, "AnesthesiaIVBone":AnesthesiaIVBone, "AnesthesiaIV":AnesthesiaIV, "AnesthesiaIVLeftHeart":AnesthesiaIVLeftHeart, "AnesthesiaIVInfusion":AnesthesiaIVInfusion, "AnesthesiaIVSolubility":AnesthesiaIVSolubility, "AnesthesiaIVGITract":AnesthesiaIVGITract, "AnesthesiaIVSkeletalMuscle":AnesthesiaIVSkeletalMuscle, "AnesthesiaIVBlood":AnesthesiaIVBlood, "AnesthesiaIVLiver":AnesthesiaIVLiver, "AnesthesiaIVBrain":AnesthesiaIVBrain, "AnesthesiaIVKidney":AnesthesiaIVKidney, "AnesthesiaIVFat":AnesthesiaIVFat, "AnesthesiaIVOtherTissue":AnesthesiaIVOtherTissue, "Autopsy":Autopsy, "Orthostatics":Orthostatics, "RegionalPressure":RegionalPressure, "Hydrostatics":Hydrostatics, "A_VFistula":A_VFistula, "A_VFistula_Flow":A_VFistula_Flow, "A_VFistula_Pressure":A_VFistula_Pressure, "LH_AnteriorPituitary":LH_AnteriorPituitary, "LH":LH, "LH_Circulating":LH_Circulating, "Fat_Flow":Fat_Flow, "Fat_Ph":Fat_Ph, "Fat_Function":Fat_Function, "Fat_Lactate":Fat_Lactate, "Fat_CO2":Fat_CO2, "Fat_Pressure":Fat_Pressure, "Fat_Vasculature":Fat_Vasculature, "Fat_AlphaReceptors":Fat_AlphaReceptors, "Fat":Fat, "Fat_Fuel":Fat_Fuel, "Fat_Structure":Fat_Structure, "Fat_Metabolism":Fat_Metabolism, "Fat_Size":Fat_Size, "Liver":Liver, "Liver_Metabolism":Liver_Metabolism, "Liver_Ph":Liver_Ph, "Liver_CO2":Liver_CO2, "Liver_AlphaReceptors":Liver_AlphaReceptors, "Liver_Structure":Liver_Structure, "Liver_Size":Liver_Size, "Liver_O2":Liver_O2, "Liver_Function":Liver_Function, "Liver_Lactate":Liver_Lactate, "Liver_Fuel":Liver_Fuel, "KAPump":KAPump, "Ketoacid":Ketoacid, "KAPool":KAPool, "KADecomposition":KADecomposition, "RespiratoryMuscle_Function":RespiratoryMuscle_Function, "RespiratoryMuscle_Size":RespiratoryMuscle_Size, "RespiratoryMuscle_Metabolism":RespiratoryMuscle_Metabolism, "RespiratoryMuscle_Work":RespiratoryMuscle_Work, "RespiratoryMuscle_Vasculature":RespiratoryMuscle_Vasculature, "RespiratoryMuscle_CO2":RespiratoryMuscle_CO2, "RespiratoryMuscle_Pressure":RespiratoryMuscle_Pressure, "RespiratoryMuscle_ContractileProtein":RespiratoryMuscle_ContractileProtein, "RespiratoryMuscle_Fuel":RespiratoryMuscle_Fuel, "RespiratoryMuscle_Ph":RespiratoryMuscle_Ph, "RespiratoryMuscle_Lactate":RespiratoryMuscle_Lactate, "RespiratoryMuscle_AlphaReceptors":RespiratoryMuscle_AlphaReceptors, "RespiratoryMuscle_Structure":RespiratoryMuscle_Structure, "RespiratoryMuscle_Flow":RespiratoryMuscle_Flow, "RespiratoryMuscle":RespiratoryMuscle, "RespiratoryMuscle_Glycogen":RespiratoryMuscle_Glycogen, "RespiratoryMuscle_Insulin":RespiratoryMuscle_Insulin, "LM_Gluconeogenesis":LM_Gluconeogenesis, "LM_FA_Glucose":LM_FA_Glucose, "LM_Glycogenolysis":LM_Glycogenolysis, "LM_Insulin":LM_Insulin, "LM_FattyAcids":LM_FattyAcids, "LM_Ketoacids":LM_Ketoacids, "LM_FA_AminoAcids":LM_FA_AminoAcids, "LM_AminoAcids":LM_AminoAcids, "LM_Glucose":LM_Glucose, "LM_Glycogenesis":LM_Glycogenesis, "LiverMetabolism":LiverMetabolism, "LM_Glycogen":LM_Glycogen, "Progesterone":Progesterone, "FSH":FSH, "FSH_Circulating":FSH_Circulating, "FSH_AnteriorPituitary":FSH_AnteriorPituitary, "LeptinClearance":LeptinClearance, "LeptinPump":LeptinPump, "Leptin":Leptin, "LeptinPool":LeptinPool, "LeptinSecretion":LeptinSecretion, "HepaticFunction":HepaticFunction, "PlasmaProtein":PlasmaProtein, "CircyProtein":CircyProtein, "Colloids":Colloids, "CO2Veins":CO2Veins, "Blood_BaseToGas":Blood_BaseToGas, "CO2Total":CO2Total, "CO2Artys":CO2Artys, "CO2":CO2, "Tissue_BaseToGas":Tissue_BaseToGas, "Muscle_BaseToGas":Muscle_BaseToGas, "Blood_GasToBase":Blood_GasToBase, "Muscle_GasToBase":Muscle_GasToBase, "CO2Tools":CO2Tools, "Tissue_GasToBase":Tissue_GasToBase, "CreatineSkeletalMuscle":CreatineSkeletalMuscle, "Creatine":Creatine, "CreatineCells":CreatineCells, "SympsKidy":SympsKidy, "GangliaKidney":GangliaKidney, "CNSTrophicFactor":CNSTrophicFactor, "Chemoreceptors":Chemoreceptors, "GangliaGeneral":GangliaGeneral, "SympsCNS":SympsCNS, "Mechanoreceptors":Mechanoreceptors, "ExerciseSymps":ExerciseSymps, "MotorRadiation":MotorRadiation, "AdrenalNerve":AdrenalNerve, "LowPressureReceptors":LowPressureReceptors, "Baroreflex":Baroreflex, "SympsChemo":SympsChemo, "CushingResponse":CushingResponse, "SystemicVeins_AlphaReceptors":SystemicVeins_AlphaReceptors, "ChemoreceptorAcclimation":ChemoreceptorAcclimation, "VagusNerve":VagusNerve, "Nerves":Nerves, "OtherTissue_Vasculature":OtherTissue_Vasculature, "OtherTissue_Function":OtherTissue_Function, "OtherTissue_Fuel":OtherTissue_Fuel, "OtherTissue_Size":OtherTissue_Size, "OtherTissue_Pressure":OtherTissue_Pressure, "OtherTissue_Ph":OtherTissue_Ph, "OtherTissue":OtherTissue, "OtherTissue_AlphaReceptors":OtherTissue_AlphaReceptors, "OtherTissue_Lactate":OtherTissue_Lactate, "OtherTissue_Metabolism":OtherTissue_Metabolism, "OtherTissue_CO2":OtherTissue_CO2, "OtherTissue_Flow":OtherTissue_Flow, "OtherTissue_Structure":OtherTissue_Structure, "IVDrip":IVDrip, "Context":Context, "Traits":Traits, "Values_Muscularity":Values_Muscularity, "Values":Values, "Values_Gender":Values_Gender, "Values_Adiposity":Values_Adiposity, "Values_OtherMass":Values_OtherMass, "Values_Height":Values_Height, "Values_Age":Values_Age, "Descriptors":Descriptors, "Male":Male, "Descriptors_Gender":Descriptors_Gender, "Female":Female, "Descriptors_Adiposity":Descriptors_Adiposity, "MorbidlyObese":MorbidlyObese, "Overweight":Overweight, "Underweight":Underweight, "Obese":Obese, "NormalWeight":NormalWeight, "Descriptors_Muscularity":Descriptors_Muscularity, "AboveNormal":AboveNormal, "TrainedAthlete":TrainedAthlete, "Normal":Normal, "BelowNormal":BelowNormal, "Descriptors_BodySize":Descriptors_BodySize, "VeryLarge":VeryLarge, "Large":Large, "Small":Small, "Descriptors_Age":Descriptors_Age, "Old":Old, "Middleaged":Middleaged, "Youngish":Youngish, "Young":Young, "VeryOld":VeryOld, "Start_OrganConductance":Start_OrganConductance, "Start":Start, "Start_OrganCalories":Start_OrganCalories, "Start_Heat":Start_Heat, "Start_Height":Start_Height, "Start_Morphology":Start_Morphology, "Start_FatSize":Start_FatSize, "Start_Weight":Start_Weight, "Start_SkeletalMuscleSize":Start_SkeletalMuscleSize, "Start_Gender":Start_Gender, "Start_Age":Start_Age, "Start_BloodSize":Start_BloodSize, "Start_WholeBody":Start_WholeBody, "Start_BodyH2O":Start_BodyH2O, "Start_General":Start_General, "Start_BodySize":Start_BodySize, "Start_OrganSize":Start_OrganSize, "Start_Creatinine":Start_Creatinine, "Start_Creatine":Start_Creatine, "Start_Metabolism":Start_Metabolism, "Start_Urea":Start_Urea, "Start_FattyAcid":Start_FattyAcid, "Start_AminoAcid":Start_AminoAcid, "Start_Triglyceride":Start_Triglyceride, "Start_Glucose":Start_Glucose, "Start_KetoAcid":Start_KetoAcid, "Start_Testosterone":Start_Testosterone, "Start_Progesterone":Start_Progesterone, "Start_Norepinephrine":Start_Norepinephrine, "Start_Epinephrine":Start_Epinephrine, "Start_ANP":Start_ANP, "Start_Aldosterone":Start_Aldosterone, "Start_Renin":Start_Renin, "Start_FSH":Start_FSH, "Start_Leptin":Start_Leptin, "Start_Insulin":Start_Insulin, "Start_Inhibin":Start_Inhibin, "Start_LH":Start_LH, "Start_ADH":Start_ADH, "Start_Estradiol":Start_Estradiol, "Start_hCG":Start_hCG, "Start_Glucagon":Start_Glucagon, "Start_EPO":Start_EPO, "Start_Hormones":Start_Hormones, "Start_ThyroidHormone":Start_ThyroidHormone, "Start_ExtracellularPotassium":Start_ExtracellularPotassium, "Start_ExtracellularPhosphate":Start_ExtracellularPhosphate, "Start_ExtracellularSodium":Start_ExtracellularSodium, "Start_ExtracellularSulphate":Start_ExtracellularSulphate, "Start_ExtracellularChloride":Start_ExtracellularChloride, "Start_CellularPotassium":Start_CellularPotassium, "Start_Electrolytes":Start_Electrolytes}
+
+#the following are never referenced:
+#LM_Glycerol
+#LM_Lactate
+
+all_ODEs = [{'type': 'diffeq', 'classname': 'ADHPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.3}, {'type': 'diffeq', 'classname': 'ADHFastMass', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 32.0}, {'type': 'diffeq', 'classname': 'ADHSlowMass', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 170.0}, {'type': 'diffeq', 'classname': 'GlucosePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 165.0}, {'type': 'diffeq', 'classname': 'ThyroidPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 12.0}, {'type': 'diffeq', 'classname': 'Skin_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.018}, {'type': 'delay', 'classname': 'Skin_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'Skin_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'Skin_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.28}, {'type': 'backwardeuler', 'classname': 'Skin_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'PO4Pool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.026}, {'type': 'diffeq', 'classname': 'NaPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 21.7}, {'type': 'diffeq', 'classname': 'SO4Pool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.042}, {'type': 'diffeq', 'classname': 'ClPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 16.1}, {'type': 'delay', 'classname': 'KAldoEffect', 'outputname': 'Delayed', 'k': 'RateConst', 'inputname': 'Immediate', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'KCell', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 39.8}, {'type': 'diffeq', 'classname': 'KPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.66}, {'type': 'diffeq', 'classname': 'HeatSkeletalMuscle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 70.0}, {'type': 'diffeq', 'classname': 'HeatSkin', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 7.0}, {'type': 'diffeq', 'classname': 'HeatCore', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 123.0}, {'type': 'diffeq', 'classname': 'CellProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 60000.0}, {'type': 'diffeq', 'classname': 'ExcessLungWater', 'outputname': 'Volume', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'delay', 'classname': 'ReninSynthesis', 'outputname': 'Rate', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 2.9}, {'type': 'diffeq', 'classname': 'ReninFree', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 870.0}, {'type': 'diffeq', 'classname': 'ReninGranules', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 8700.0}, {'type': 'diffeq', 'classname': 'ReninPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 90.0}, {'type': 'diffeq', 'classname': 'FAPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 25.0}, {'type': 'diffeq', 'classname': 'Pericardium_Cavity', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 0.1}, {'type': 'diffeq', 'classname': 'Pericardium_V0', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 5.0}, {'type': 'diffeq', 'classname': 'SkeletalMuscle_ContractileProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 29.0}, {'type': 'stabledelay', 'classname': 'SkeletalMuscle_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'backwardeuler', 'classname': 'SkeletalMuscle_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'SkeletalMuscle_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.202}, {'type': 'diffeq', 'classname': 'SkeletalMuscle_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 3.24}, {'type': 'delay', 'classname': 'SkeletalMuscle_MetabolicVasodilation', 'outputname': 'Effect', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'SkeletalMuscle_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'diffeq', 'classname': 'SkeletalMuscle_Glycogen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 5.3}, {'type': 'delay', 'classname': 'SkeletalMuscle_Insulin', 'outputname': 'conc_InsulinDelayed', 'k': 'K', 'inputname': 'conc_Insulin', 'errorlim': 0.2}, {'type': 'diffeq', 'classname': 'hCG', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'Estradiol', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'MidodrinePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 20.0}, {'type': 'diffeq', 'classname': 'MidodrineGILumen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 5.0}, {'type': 'diffeq', 'classname': 'DesglymidodrinePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 40.0}, {'type': 'diffeq', 'classname': 'DigoxinPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'DigoxinGILumen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'FurosemideSingleDose', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'FurosemidePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'ThiazideGILumen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'ThiazidePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'GILumenSodium', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.8}, {'type': 'diffeq', 'classname': 'GILumenPotassium', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.25}, {'type': 'diffeq', 'classname': 'GILumenChloride', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.9}, {'type': 'diffeq', 'classname': 'GILumenVolume', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'GILumenTemperature', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.6}, {'type': 'diffeq', 'classname': 'GILumenCarbohydrates', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 19.3}, {'type': 'diffeq', 'classname': 'GILumenProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 16.0}, {'type': 'diffeq', 'classname': 'GILumenFat', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 19.9}, {'type': 'backwardeuler', 'classname': 'GITract_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'GITract_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.18}, {'type': 'stabledelay', 'classname': 'GITract_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'GITract_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'diffeq', 'classname': 'GITract_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.011}, {'type': 'diffeq', 'classname': 'AldoPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 142.0}, {'type': 'stabledelay', 'classname': 'O2Artys', 'outputname': 'conc_O2', 'k': 'K', 'inputname': 'conc_O2_SteadyState', 'errorlim': 0.002}, {'type': 'stabledelay', 'classname': 'O2Veins', 'outputname': 'conc_O2', 'k': 'K', 'inputname': 'conc_O2_SteadyState', 'errorlim': 0.0015}, {'type': 'diffeq', 'classname': 'SweatFuel', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'SweatAcclimation', 'outputname': 'Effect', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'Kidney_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.0026}, {'type': 'stabledelay', 'classname': 'Kidney_MyogenicDelay', 'outputname': 'PressureChange', 'k': 'K', 'inputname': 'PressureChange_Steady_State', 'errorlim': 0.1}, {'type': 'stabledelay', 'classname': 'Kidney_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'Kidney_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.04}, {'type': 'backwardeuler', 'classname': 'Kidney_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'delay', 'classname': 'Kidney_Myogenic', 'outputname': 'AdaptedPressure', 'k': 'K', 'inputname': 'InterlobarPressure', 'errorlim': 0.1}, {'type': 'diffeq', 'classname': 'AnesthesiaGasBone', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasBrain', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasLiver', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasGITract', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasSkeletalMuscle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasFat', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasRespiratoryMuscle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'stablediffeq', 'classname': 'AnesthesiaGasVein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.1}, {'type': 'diffeq', 'classname': 'AnesthesiaGasSkin', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasLeftHeart', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'stablediffeq', 'classname': 'AnesthesiaGasArty', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.1}, {'type': 'diffeq', 'classname': 'AnesthesiaGasOtherTissue', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasKidney', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaGasRightHeart', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'CO', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'delay', 'classname': 'InsulinSynthesis', 'outputname': 'Rate', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.17}, {'type': 'diffeq', 'classname': 'InsulinPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'InsulinStorage', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 20.0}, {'type': 'diffeq', 'classname': 'Bone_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.035}, {'type': 'diffeq', 'classname': 'Bone_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.56}, {'type': 'stabledelay', 'classname': 'Bone_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'Bone_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'backwardeuler', 'classname': 'Bone_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'Bone_Mineral', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 57.5}, {'type': 'diffeq', 'classname': 'UT_H2O', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 98.0}, {'type': 'diffeq', 'classname': 'MT_H2O', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 190.0}, {'type': 'diffeq', 'classname': 'LT_H2O', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 98.0}, {'type': 'diffeq', 'classname': 'MT_InterstitialProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.75}, {'type': 'diffeq', 'classname': 'UT_InterstitialProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.75}, {'type': 'diffeq', 'classname': 'LT_InterstitialProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.75}, {'type': 'diffeq', 'classname': 'PeritoneumSpace', 'outputname': 'Volume', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'PeritoneumProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'GlycerolPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 15.0}, {'type': 'delay', 'classname': 'conc_EPODelay', 'outputname': 'Effect', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'PlasmaVol', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 30.0}, {'type': 'diffeq', 'classname': 'RBCVol', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 24.0}, {'type': 'diffeq', 'classname': 'TriglyceridePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 125.0}, {'type': 'delay', 'classname': 'RightHeart_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'RightHeart_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'RightHeart_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'RightHeart_ContractileProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.12}, {'type': 'backwardeuler', 'classname': 'RightHeart_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'delay', 'classname': 'RightHeart_Infarction', 'outputname': 'DeadTissueFraction', 'k': 'DeadTissueK', 'inputname': 'DamagedTissueFraction', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'RightHeart_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.0003}, {'type': 'diffeq', 'classname': 'AAPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 75.0}, {'type': 'diffeq', 'classname': 'LipidDeposits', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 130.0}, {'type': 'diffeq', 'classname': 'OralH2OGlucoseLoad', 'outputname': 'TotalH2O', 'dervname': 'H2OChange', 'errorlim': None}, {'type': 'diffeq', 'classname': 'OralH2OGlucoseLoad', 'outputname': 'TotalGlucose', 'dervname': 'GlucoseChange', 'errorlim': None}, {'type': 'stablediffeq', 'classname': 'BVSeqVeins', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 1.5}, {'type': 'stablediffeq', 'classname': 'BVSeqArtys', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 0.5}, {'type': 'delay', 'classname': 'HypothalamusSweatingAcclimation', 'outputname': 'Offset', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.003}, {'type': 'delay', 'classname': 'HypothalamusShiveringAcclimation', 'outputname': 'Offset', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.003}, {'type': 'diffeq', 'classname': 'GlucagonPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 15.0}, {'type': 'delay', 'classname': 'NephronANP', 'outputname': 'conc_ANPDelayed', 'k': 'K', 'inputname': 'conc_ANPPool', 'errorlim': None}, {'type': 'delay', 'classname': 'NephronAldo', 'outputname': 'conc_AldoDelayed', 'k': 'K', 'inputname': 'conc_AldoPool', 'errorlim': None}, {'type': 'delay', 'classname': 'NephronADH', 'outputname': 'conc_ADHDelayed', 'k': 'K', 'inputname': 'conc_ADHPool', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'TGF_Vascular', 'outputname': 'Signal', 'k': 'K', 'inputname': 'Steady_State', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'MedullaUrea', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 5.9}, {'type': 'diffeq', 'classname': 'MedullaNa', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.13}, {'type': 'delay', 'classname': 'PT_NH3', 'outputname': 'ChronicDelay', 'k': 'K', 'inputname': 'ChronicPhEffect', 'errorlim': None}, {'type': 'diffeq', 'classname': 'CD_H2OChannels', 'outputname': 'Inactive', 'dervname': 'Change', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'Testosterone', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 2.0}, {'type': 'diffeq', 'classname': 'DialyzerActivity', 'outputname': 'TotalDialysateUsed', 'dervname': 'DialysateChange', 'errorlim': None}, {'type': 'diffeq', 'classname': 'DialyzerActivity', 'outputname': 'TotalUltrafiltration', 'dervname': 'UltrafiltrationChange', 'errorlim': None}, {'type': 'delay', 'classname': 'ANPSecretion', 'outputname': 'NaturalRate', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.67}, {'type': 'backwardeuler', 'classname': 'ANPPool', 'outputname': 'Mass', 'f1': 'F1', 'f2': 'F2', 'errorlim': 3.0}, {'type': 'diffeq', 'classname': 'CreatininePool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 3.1}, {'type': 'diffeq', 'classname': 'Transfusion', 'outputname': 'Volume', 'dervname': 'Rate', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'BladderChloride', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderSulphate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderKetoacid', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderCreatinine', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderGlucose', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderUrea', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderPotassium', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderPhosphate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderSodium', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderBicarbonate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderAmmonia', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': None}, {'type': 'diffeq', 'classname': 'BladderVolume', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'Hemorrhage', 'outputname': 'Volume', 'dervname': 'Rate', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'LeftHeart_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.002}, {'type': 'delay', 'classname': 'LeftHeart_Infarction', 'outputname': 'DeadTissueFraction', 'k': 'DeadTissueK', 'inputname': 'DamagedTissueFraction', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'LeftHeart_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'diffeq', 'classname': 'LeftHeart_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.04}, {'type': 'backwardeuler', 'classname': 'LeftHeart_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'LeftHeart_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'LeftHeart_ContractileProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.38}, {'type': 'diffeq', 'classname': 'Exercise_Treadmill', 'outputname': 'DistanceTraveled_Feet', 'dervname': 'Velocity', 'errorlim': None}, {'type': 'delay', 'classname': 'Exercise_Metabolism', 'outputname': 'TotalWatts', 'k': 'TotalWattsK', 'inputname': 'TargetTotalWatts', 'errorlim': 3.0}, {'type': 'delay', 'classname': 'Exercise_Metabolism', 'outputname': 'MotionWatts', 'k': 'MotionWattsK', 'inputname': 'TargetMotionWatts', 'errorlim': 0.6}, {'type': 'delay', 'classname': 'Exercise_Metabolism', 'outputname': 'ContractionRate', 'k': 'ContractionRateK', 'inputname': 'TargetContractionRate', 'errorlim': 0.5}, {'type': 'diffeq', 'classname': 'Pheochromocytoma', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 50000.0}, {'type': 'backwardeuler', 'classname': 'NEPool', 'outputname': 'Mass', 'f1': 'F1', 'f2': 'F2', 'errorlim': 36.0}, {'type': 'backwardeuler', 'classname': 'EpiPool', 'outputname': 'Mass', 'f1': 'F1', 'f2': 'F2', 'errorlim': 6.0}, {'type': 'diffeq', 'classname': 'Inhibin', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.8}, {'type': 'diffeq', 'classname': 'UreaPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 54.0}, {'type': 'diffeq', 'classname': 'UreaCell', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 101.0}, {'type': 'diffeq', 'classname': 'EPOPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.2}, {'type': 'diffeq', 'classname': 'LacPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.15}, {'type': 'diffeq', 'classname': 'Brain_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.14}, {'type': 'stabledelay', 'classname': 'Brain_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'Brain_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.008}, {'type': 'backwardeuler', 'classname': 'Brain_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'delay', 'classname': 'Brain_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'BrainInsult_PO2', 'outputname': 'PO2Delay', 'k': 'K', 'inputname': 'PO2', 'errorlim': 0.37}, {'type': 'stablediffeq', 'classname': 'LeftAtrium', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stablediffeq', 'classname': 'SplanchnicVeins', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stablediffeq', 'classname': 'PulmVeins', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stablediffeq', 'classname': 'PulmArty', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stabledelay', 'classname': 'RightVentricle', 'outputname': 'Vol', 'k': 'K', 'inputname': 'Vol_SteadyState', 'errorlim': 0.9}, {'type': 'stablediffeq', 'classname': 'RightAtrium', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stabledelay', 'classname': 'LeftVentricle', 'outputname': 'Vol', 'k': 'K', 'inputname': 'Vol_SteadyState', 'errorlim': 0.9}, {'type': 'stablediffeq', 'classname': 'SystemicArtys', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'stablediffeq', 'classname': 'PulmCapys', 'outputname': 'Vol', 'dervname': 'Change', 'errorlim': 10.0}, {'type': 'diffeq', 'classname': 'Ovaries_CorpusLuteum', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'Ovaries_Follicle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'AnesthesiaIVRespiratoryMuscle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.6}, {'type': 'diffeq', 'classname': 'AnesthesiaIVRightHeart', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.02}, {'type': 'diffeq', 'classname': 'AnesthesiaIVSkin', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.61}, {'type': 'diffeq', 'classname': 'AnesthesiaIVInjection', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 3.0}, {'type': 'diffeq', 'classname': 'AnesthesiaIVBone', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 2.4}, {'type': 'diffeq', 'classname': 'AnesthesiaIVLeftHeart', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.11}, {'type': 'diffeq', 'classname': 'AnesthesiaIVGITract', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.08}, {'type': 'diffeq', 'classname': 'AnesthesiaIVSkeletalMuscle', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 11.1}, {'type': 'diffeq', 'classname': 'AnesthesiaIVBlood', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 2.16}, {'type': 'diffeq', 'classname': 'AnesthesiaIVLiver', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.6}, {'type': 'diffeq', 'classname': 'AnesthesiaIVBrain', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.6}, {'type': 'diffeq', 'classname': 'AnesthesiaIVKidney', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.13}, {'type': 'diffeq', 'classname': 'AnesthesiaIVFat', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 6.4}, {'type': 'diffeq', 'classname': 'AnesthesiaIVOtherTissue', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 2.4}, {'type': 'delay', 'classname': 'LH_AnteriorPituitary', 'outputname': 'EstradiolEffectDelayed', 'k': 'K', 'inputname': 'EstradiolEffect', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'LH_Circulating', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'Fat_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.025}, {'type': 'diffeq', 'classname': 'Fat_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.4}, {'type': 'delay', 'classname': 'Fat_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'Fat_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'backwardeuler', 'classname': 'Fat_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'Liver_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.23}, {'type': 'backwardeuler', 'classname': 'Liver_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'Liver_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.014}, {'type': 'stabledelay', 'classname': 'Liver_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'KAPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.0075}, {'type': 'delay', 'classname': 'RespiratoryMuscle_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'diffeq', 'classname': 'RespiratoryMuscle_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.48}, {'type': 'diffeq', 'classname': 'RespiratoryMuscle_ContractileProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 4.2}, {'type': 'stabledelay', 'classname': 'RespiratoryMuscle_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'RespiratoryMuscle_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.03}, {'type': 'backwardeuler', 'classname': 'RespiratoryMuscle_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'RespiratoryMuscle_Glycogen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.46}, {'type': 'delay', 'classname': 'RespiratoryMuscle_Insulin', 'outputname': 'conc_InsulinDelayed', 'k': 'K', 'inputname': 'conc_Insulin', 'errorlim': 0.2}, {'type': 'delay', 'classname': 'LM_Insulin', 'outputname': 'conc_InsulinDelayed', 'k': 'K', 'inputname': 'conc_Insulin', 'errorlim': 0.5}, {'type': 'diffeq', 'classname': 'LM_Glycogen', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.0}, {'type': 'diffeq', 'classname': 'Progesterone', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.3}, {'type': 'diffeq', 'classname': 'FSH_Circulating', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.6}, {'type': 'delay', 'classname': 'FSH_AnteriorPituitary', 'outputname': 'EstradiolEffectDelayed', 'k': 'K', 'inputname': 'EstradiolEffect', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'LeptinPool', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 1.2}, {'type': 'diffeq', 'classname': 'PlasmaProtein', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 2.1}, {'type': 'stabledelay', 'classname': 'CO2Veins', 'outputname': 'conc_HCO3', 'k': 'K', 'inputname': 'conc_HCO3_SteadyState', 'errorlim': 0.000256}, {'type': 'stabledelay', 'classname': 'CO2Artys', 'outputname': 'conc_HCO3', 'k': 'K', 'inputname': 'conc_HCO3_SteadyState', 'errorlim': 0.00024}, {'type': 'diffeq', 'classname': 'CNSTrophicFactor', 'outputname': 'Effect', 'dervname': 'EffectChange', 'errorlim': 0.01}, {'type': 'delay', 'classname': 'LowPressureReceptors', 'outputname': 'AdaptedPressure', 'k': 'RateConst', 'inputname': 'AvePressure', 'errorlim': 0.06}, {'type': 'delay', 'classname': 'Baroreflex', 'outputname': 'AdaptedPressure', 'k': 'RateConst', 'inputname': 'SinusPressure', 'errorlim': 0.97}, {'type': 'delay', 'classname': 'ChemoreceptorAcclimation', 'outputname': 'Effect', 'k': 'K', 'inputname': 'SteadyState', 'errorlim': 0.1}, {'type': 'delay', 'classname': 'OtherTissue_Vasculature', 'outputname': 'Effect', 'k': 'K', 'inputname': 'Stimulus', 'errorlim': None}, {'type': 'stabledelay', 'classname': 'OtherTissue_Fuel', 'outputname': 'FractUseDelay', 'k': 'K', 'inputname': 'FractUse', 'errorlim': 0.01}, {'type': 'diffeq', 'classname': 'OtherTissue_Lactate', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.032}, {'type': 'diffeq', 'classname': 'OtherTissue_CO2', 'outputname': 'Mass', 'dervname': 'Change', 'errorlim': 0.51}, {'type': 'backwardeuler', 'classname': 'OtherTissue_Structure', 'outputname': 'Effect', 'f1': 'F1', 'f2': 'F2', 'errorlim': None}, {'type': 'diffeq', 'classname': 'IVDrip', 'outputname': 'TotalH2O', 'dervname': 'H2OChange', 'errorlim': None}]
+
+#also removed from here: LM_Glycerol
+
+def save_state():
+    store_vals = []
+    for i, component_obj in enumerate(components.values()):
+        for attr_str in vars(component_obj):
+            store_vals.append([component_obj, attr_str, getattr(component_obj, attr_str)])
+    return store_vals
+
+def load_state(store_vals):
+    for i, tupl in store_vals:
+        component = tupl[0]
+        attr_str = tupl[1]
+        val = tupl[2]
+        setattr(component, attr_str, val)
+
+def step_with_timestep(timestep):
+    System.Dx = timestep
     Structure.Dervs_func()
     Structure.Wrapup_func()
-    System.X += System.Dx
-    for timer in timervars:
-        timer.count()
+
+def calc_optimal_timestep():
+    """
+    calculates optimal timestep using truncation error
+
+    need to evaluate one step with step of dt_tiny, to then calculate truncation error for every differential equation
+    for each diffeq or backwardeuler, keep track of the output and its errolim
+    this output is y?
+    dydt is the first input to the differential equation
+    get new value of every output
+    Structure.Dervs_func
+    """
+
+    timesteps = []
+
+    store_vals = save_state()
+    #with state saved we can do tiny step to do truncation error stuff to get optimal timestep
+
+    #record dydx in all_ODEs 
+
+    #get current dydx for every ODE
+    for ODE in all_ODEs:
+        ODE_type = ODE["type"]
+        classname = ODE["classname"]
+
+        if ODE_type in ["delay", "stabledelay"]:
+            #dydx is K * (A - B_pre)
+            K_name = ODE["k"] #this will be the name of a variable
+            A_name = ODE["inputname"]
+            B_pre_name = ODE["outputname"]
+            K = getattr(components[classname], K_name)
+            A = getattr(components[classname], A_name)
+            B_pre = getattr(components[classname], B_pre_name)
+            dydt = K * (A - B_pre)
+            ODE["dydt"] = dydt
+        
+        elif ODE_type in ["diffeq", "stablediffeq"]:
+            dydt_name = ODE["dervname"]
+            dydt = getattr(components[classname], dydt_name)
+            ODE["dydt"] = dydt
+
+        elif ODE_type == "backwardeuler":
+            f1_name = ODE["f1"]
+            f2_name = ODE["f2"]
+            y0_name = ODE["outputname"]
+            y0 = getattr(components[classname], y0_name)
+            f1 = getattr(components[classname], f1_name)
+            f2 = getattr(components[classname], f2_name)
+            d2y_dt2 = abs(-f2 * (f1 - f2 * y0)) 
+            ODE["d2y_dt2"] = d2y_dt2
+
+    #take tiny step forward
+    dt_tiny = 1e-6
+    step_with_timestep(dt_tiny)
+
+    #recalculate new dydx for every diffeq and delay in the system:
+    for ODE in all_ODEs:
+        ODE_type = ODE["type"]
+        classname = ODE["classname"]
+
+        if ODE_type in ["delay", "stabledelay"]:
+            #dydx is K * (A - B_pre)
+            K_name = ODE["k"] #this will be the name of a variable
+            A_name = ODE["inputname"]
+            B_pre_name = ODE["outputname"]
+            K = getattr(components[classname], K_name)
+            A = getattr(components[classname], A_name)
+            B_pre = getattr(components[classname], B_pre_name)
+            dydt = K * (A - B_pre)
+        
+        elif ODE_type in ["diffeq", "stablediffeq"]:
+            dydt_name = ODE["dervname"]
+            dydt = getattr(components[classname], dydt_name)
+
+        if ODE_type != "backwardeuler":
+            old_dydt = ODE["dydt"]
+            d2y_dt2 = (dydt - old_dydt) / dt_tiny
+            ODE["d2y_dt2"] = (d2y_dt2)
+
+    all_max_timesteps = []
+
+    for ODE in all_ODEs:
+        d2y_dt2 = ODE["d2y_dt2"]
+        if ODE["errorlim"] == None:
+            ODE["errorlim"] = getattr(components[ODE["classname"]], ODE["outputname"])*0.03
+        if abs(d2y_dt2) == 0:
+            #will get /0 error if try this, just set max_dt to arbitrarily high number
+            all_max_timesteps.append(math.inf)
+        else:
+            max_dt = np.sqrt(2 * ODE["errorlim"] / abs(d2y_dt2))
+            all_max_timesteps.append(max_dt)
+
+    return min(all_max_timesteps)
+
+def run_sim(duration):
+    Structure.Context_func() #maybe only need to do this once at start?
+    Structure.Parms_func() #once at start too?
+    Structure.Dervs_func() #once to initialise all the ODE vals
+    Structure.Wrapup_func() #once because:?
+
+    def step():
+        timestep = calc_optimal_timestep()
+        System.Dx = timestep
+        Structure.Dervs_func()
+        Structure.Wrapup_func()
+        System.X += timestep
+        print("ADHPool.mass:", ADHPool.Mass)
+
+    while System.X < duration:
+        step()
+
+
+if __name__ == "__main__":
+    run_sim(100000)
+
+    """
+    TODO: depending on Gender, Ovaries.derv_func() and Uterus.derv_func() might not run. So currently gender defaults to female
+    TODO: needed to remove
+    """
